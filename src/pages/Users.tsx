@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, UserPlus, Shield } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface UserProfile {
   id: string;
@@ -23,6 +24,7 @@ const Users = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -61,6 +63,16 @@ const Users = () => {
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (selectedRoles.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one role",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -68,7 +80,6 @@ const Users = () => {
     const password = formData.get("password") as string;
     const firstName = formData.get("first_name") as string;
     const lastName = formData.get("last_name") as string;
-    const role = formData.get("role") as string;
 
     try {
       // Create user via Supabase Auth
@@ -86,13 +97,15 @@ const Users = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Add role
+        // Add all selected roles
+        const roleInserts = selectedRoles.map(role => ({
+          user_id: authData.user.id,
+          role: role as any,
+        }));
+
         const { error: roleError } = await supabase
           .from("user_roles")
-          .insert([{
-            user_id: authData.user.id,
-            role: role as any,
-          }]);
+          .insert(roleInserts);
 
         if (roleError) throw roleError;
 
@@ -102,6 +115,7 @@ const Users = () => {
         });
 
         setIsDialogOpen(false);
+        setSelectedRoles([]);
         fetchUsers();
       }
     } catch (error: any) {
@@ -113,6 +127,14 @@ const Users = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRoleToggle = (role: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(role)
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -187,18 +209,40 @@ const Users = () => {
                   minLength={6}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select name="role" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="coach">Coach</SelectItem>
-                    <SelectItem value="player">Player</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3">
+                <Label>Roles (select at least one)</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="role-admin"
+                      checked={selectedRoles.includes("admin")}
+                      onCheckedChange={() => handleRoleToggle("admin")}
+                    />
+                    <Label htmlFor="role-admin" className="font-normal cursor-pointer">
+                      Admin
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="role-coach"
+                      checked={selectedRoles.includes("coach")}
+                      onCheckedChange={() => handleRoleToggle("coach")}
+                    />
+                    <Label htmlFor="role-coach" className="font-normal cursor-pointer">
+                      Coach
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="role-player"
+                      checked={selectedRoles.includes("player")}
+                      onCheckedChange={() => handleRoleToggle("player")}
+                    />
+                    <Label htmlFor="role-player" className="font-normal cursor-pointer">
+                      Player
+                    </Label>
+                  </div>
+                </div>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating..." : "Create User"}
