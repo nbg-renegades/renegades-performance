@@ -211,25 +211,40 @@ const Users = () => {
 
       if (profileError) throw profileError;
 
-      // Delete existing roles
-      const { error: deleteError } = await supabase
+      // Fetch existing roles to compare
+      const { data: existingRoles } = await supabase
         .from("user_roles")
-        .delete()
+        .select("role")
         .eq("user_id", editingUser.id);
 
-      if (deleteError) throw deleteError;
+      const existingRoleNames = (existingRoles || []).map(r => r.role as string);
+      const rolesToAdd = selectedRoles.filter(r => !existingRoleNames.includes(r));
+      const rolesToRemove = existingRoleNames.filter((r: string) => !selectedRoles.includes(r));
 
-      // Insert new roles
-      const roleInserts = selectedRoles.map(role => ({
-        user_id: editingUser.id,
-        role: role as any,
-      }));
+      // Insert new roles first (before deleting to maintain permissions)
+      if (rolesToAdd.length > 0) {
+        const roleInserts = rolesToAdd.map(role => ({
+          user_id: editingUser.id,
+          role: role as any,
+        }));
 
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert(roleInserts);
+        const { error: insertError } = await supabase
+          .from("user_roles")
+          .insert(roleInserts);
 
-      if (roleError) throw roleError;
+        if (insertError) throw insertError;
+      }
+
+      // Delete removed roles after inserting new ones
+      if (rolesToRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", editingUser.id)
+          .in("role", rolesToRemove as any);
+
+        if (deleteError) throw deleteError;
+      }
 
       // Update positions if user has player role
       if (selectedRoles.includes('player')) {
