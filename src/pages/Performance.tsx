@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 
 interface PerformanceEntry {
   id: string;
@@ -261,6 +262,8 @@ const Performance = () => {
           </Dialog>
         )}
       </div>
+
+      <PerformanceRadarChart currentUserId={currentUserId} userRole={userRole} />
 
       <Card className="border-border/50 shadow-card">
         <CardHeader>
