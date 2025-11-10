@@ -20,15 +20,15 @@ interface PerformanceRadarChartProps {
   userRole: string;
 }
 
-const PLAYER_COLOR = 'hsl(45 93% 47%)'; // Gold color for current player
+const PLAYER_COLOR = 'hsl(var(--primary))'; // Gold color for current player
 const COMPARISON_COLOR = 'hsl(var(--muted-foreground))'; // Gray for single comparisons
 
 const MULTI_COLORS = [
-  'hsl(var(--chart-1))',
   'hsl(var(--chart-2))',
   'hsl(var(--chart-3))',
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))',
+  'hsl(var(--chart-1))',
 ];
 
 function getLineColor(key: string, mode: ComparisonMode, index: number): string {

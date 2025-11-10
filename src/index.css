@@ -40,6 +40,13 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
+    /* Chart colors for data visualization */
+    --chart-1: 40 100% 50%;  /* Golden orange (primary) */
+    --chart-2: 200 70% 50%;  /* Blue */
+    --chart-3: 160 60% 45%;  /* Teal */
+    --chart-4: 280 65% 60%;  /* Purple */
+    --chart-5: 0 70% 50%;    /* Red */
+
     /* Sidebar - Even darker */
     --sidebar-background: 0 0% 6%;
     --sidebar-foreground: 0 0% 90%;
