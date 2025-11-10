@@ -57,12 +57,23 @@ const Performance = () => {
 
     // Get all players for coaches/admins
     if (roles.includes("coach") || roles.includes("admin")) {
-      const { data: playersData } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name, user_roles!inner(role)")
-        .eq("user_roles.role", "player");
+      // First get all user_ids with player role
+      const { data: playerRoles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "player");
 
-      setPlayers(playersData || []);
+      if (playerRoles && playerRoles.length > 0) {
+        const playerIds = playerRoles.map(r => r.user_id);
+        
+        // Then get profiles for those users
+        const { data: playersData } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", playerIds);
+
+        setPlayers(playersData || []);
+      }
     }
 
     // Fetch performance entries
