@@ -26,12 +26,17 @@ const Dashboard = () => {
       .eq("id", user.id)
       .single();
 
-    // Get user role
-    const { data: roleData } = await supabase
+    // Get all user roles (users can have multiple roles)
+    const { data: rolesData } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("user_id", user.id);
+    
+    // Prioritize roles: admin > coach > player
+    const roles = (rolesData || []).map((r: any) => r.role);
+    const primaryRole = roles.includes("admin") ? "admin" :
+                       roles.includes("coach") ? "coach" :
+                       roles.includes("player") ? "player" : "";
 
     // Get total players
     const { count: playerCount } = await supabase
@@ -51,7 +56,7 @@ const Dashboard = () => {
     setStats({
       totalPlayers: playerCount || 0,
       recentEntries: entriesCount || 0,
-      userRole: roleData?.role || "",
+      userRole: primaryRole,
       userName: profile ? `${profile.first_name} ${profile.last_name}` : "",
     });
   };
