@@ -41,11 +41,20 @@ const MainLayout = () => {
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .maybeSingle();
+      .eq("user_id", userId);
 
-    if (!error && data) {
-      setUserRole(data.role);
+    if (!error && data && data.length > 0) {
+      // Get all roles
+      const roles = data.map(r => r.role);
+      
+      // Set the highest priority role (admin > coach > player)
+      if (roles.includes("admin")) {
+        setUserRole("admin");
+      } else if (roles.includes("coach")) {
+        setUserRole("coach");
+      } else if (roles.includes("player")) {
+        setUserRole("player");
+      }
     }
   };
 
