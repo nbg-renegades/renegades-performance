@@ -170,7 +170,7 @@ const Users = () => {
     setEditingUser(user);
     setSelectedRoles(user.roles?.map(r => r.role) || []);
     
-    // Load positions
+    // Load positions - reset to unassigned if no positions exist
     const primary = user.positions?.find(p => p.is_primary);
     const secondary = user.positions?.find(p => !p.is_primary);
     setPrimaryPosition((primary?.position as FootballPosition) || 'unassigned');
@@ -233,36 +233,54 @@ const Users = () => {
 
       // Update positions if user has player role
       if (selectedRoles.includes('player')) {
-        // Delete existing positions
-        await supabase
+        // Delete existing positions first
+        const { error: deleteError } = await supabase
           .from("player_positions")
           .delete()
           .eq("player_id", editingUser.id);
 
-        // Insert new positions
+        if (deleteError) {
+          console.error("Error deleting positions:", deleteError);
+          throw deleteError;
+        }
+
+        // Build positions to insert
         const positionsToInsert = [];
-        if (primaryPosition !== 'unassigned') {
+        
+        // Only insert if not 'unassigned'
+        if (primaryPosition && primaryPosition !== 'unassigned') {
           positionsToInsert.push({
             player_id: editingUser.id,
-            position: primaryPosition,
+            position: primaryPosition as any,
             is_primary: true,
           });
         }
-        if (secondaryPosition !== 'unassigned') {
+        
+        if (secondaryPosition && secondaryPosition !== 'unassigned') {
           positionsToInsert.push({
             player_id: editingUser.id,
-            position: secondaryPosition,
+            position: secondaryPosition as any,
             is_primary: false,
           });
         }
 
+        // Insert new positions if any
         if (positionsToInsert.length > 0) {
           const { error: posError } = await supabase
             .from("player_positions")
             .insert(positionsToInsert);
 
-          if (posError) throw posError;
+          if (posError) {
+            console.error("Error inserting positions:", posError);
+            throw posError;
+          }
         }
+      } else {
+        // If player role is removed, delete all positions
+        await supabase
+          .from("player_positions")
+          .delete()
+          .eq("player_id", editingUser.id);
       }
 
       toast({
