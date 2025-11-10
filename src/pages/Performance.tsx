@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
+import { performanceEntrySchema } from "@/lib/validation";
+import { z } from "zod";
 
 interface PerformanceEntry {
   id: string;
@@ -153,6 +155,25 @@ const Performance = () => {
     const value = parseFloat(formData.get("value") as string);
     const entryDate = formData.get("entry_date") as string;
 
+    // Validate input
+    const validation = performanceEntrySchema.safeParse({
+      player_id: playerId,
+      metric_type: metricType,
+      value: value,
+      entry_date: entryDate,
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => e.message).join(", ");
+      toast({
+        title: "Validation Error",
+        description: errors,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     const unitMap: Record<string, string> = {
       "vertical_jump": "cm",
       "broad_jump": "cm",
@@ -202,6 +223,26 @@ const Performance = () => {
     const formData = new FormData(e.currentTarget);
     const value = parseFloat(formData.get("value") as string);
     const entryDate = formData.get("entry_date") as string;
+
+    // Validate input (partial schema for editing)
+    const editValidation = z.object({
+      value: z.number()
+        .positive({ message: "Value must be positive" })
+        .max(1000, { message: "Value must be less than 1000" })
+        .finite({ message: "Value must be a valid number" }),
+      entry_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Invalid date format" }),
+    }).safeParse({ value, entry_date: entryDate });
+
+    if (!editValidation.success) {
+      const errors = editValidation.error.errors.map(e => e.message).join(", ");
+      toast({
+        title: "Validation Error",
+        description: errors,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { error } = await supabase

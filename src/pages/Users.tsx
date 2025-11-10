@@ -11,6 +11,8 @@ import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { userProfileSchema } from "@/lib/validation";
+import { z } from "zod";
 
 interface UserProfile {
   id: string;
@@ -110,6 +112,25 @@ const Users = () => {
     const firstName = formData.get("first_name") as string;
     const lastName = formData.get("last_name") as string;
 
+    // Validate input
+    const validation = userProfileSchema.safeParse({
+      email: email.trim(),
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      password,
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => e.message).join(", ");
+      toast({
+        title: "Validation Error",
+        description: errors,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Create user via Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -198,6 +219,32 @@ const Users = () => {
     const formData = new FormData(e.currentTarget);
     const firstName = formData.get("first_name") as string;
     const lastName = formData.get("last_name") as string;
+
+    // Validate input (partial schema for editing, no password/email)
+    const updateValidation = z.object({
+      first_name: z.string()
+        .trim()
+        .min(1, { message: "First name is required" })
+        .max(100, { message: "First name must be less than 100 characters" }),
+      last_name: z.string()
+        .trim()
+        .min(1, { message: "Last name is required" })
+        .max(100, { message: "Last name must be less than 100 characters" }),
+    }).safeParse({
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+    });
+
+    if (!updateValidation.success) {
+      const errors = updateValidation.error.errors.map(e => e.message).join(", ");
+      toast({
+        title: "Validation Error",
+        description: errors,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       // Update profile

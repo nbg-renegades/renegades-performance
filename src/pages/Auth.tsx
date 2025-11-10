@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy } from "lucide-react";
+import { signUpSchema, signInSchema } from "@/lib/validation";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -23,6 +24,25 @@ const Auth = () => {
     const password = formData.get("signup-password") as string;
     const firstName = formData.get("first-name") as string;
     const lastName = formData.get("last-name") as string;
+
+    // Validate input
+    const validation = signUpSchema.safeParse({
+      email: email.trim(),
+      password,
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => e.message).join(", ");
+      toast({
+        title: "Validation Error",
+        description: errors,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { error } = await supabase.auth.signUp({
@@ -61,6 +81,23 @@ const Auth = () => {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("signin-email") as string;
     const password = formData.get("signin-password") as string;
+
+    // Validate input
+    const validation = signInSchema.safeParse({
+      email: email.trim(),
+      password,
+    });
+
+    if (!validation.success) {
+      const errors = validation.error.errors.map(e => e.message).join(", ");
+      toast({
+        title: "Validation Error",
+        description: errors,
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
