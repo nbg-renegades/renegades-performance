@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, TrendingUp, Pencil, Trash2 } from "lucide-react";
+import { Plus, TrendingUp, Pencil, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
@@ -259,6 +259,80 @@ const Performance = () => {
     return matchesMetric && matchesPlayer;
   });
 
+  const handleExportCSV = async () => {
+    try {
+      // Fetch all performance entries with player details
+      const { data: allEntries, error } = await supabase
+        .from("performance_entries")
+        .select("*")
+        .order("entry_date", { ascending: false });
+
+      if (error) throw error;
+
+      // Fetch all player profiles
+      const playerIds = [...new Set(allEntries?.map(e => e.player_id) || [])];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, first_name, last_name")
+        .in("id", playerIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+
+      // Convert to CSV format
+      const csvRows = [];
+      
+      // Header row
+      csvRows.push([
+        "Date",
+        "Player First Name",
+        "Player Last Name",
+        "Metric Type",
+        "Value",
+        "Unit"
+      ].join(","));
+
+      // Data rows
+      allEntries?.forEach(entry => {
+        const player = profilesMap.get(entry.player_id);
+        csvRows.push([
+          entry.entry_date,
+          player?.first_name || "",
+          player?.last_name || "",
+          metricDisplayNames[entry.metric_type],
+          entry.value,
+          entry.unit
+        ].join(","));
+      });
+
+      // Create CSV content
+      const csvContent = csvRows.join("\n");
+      
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `performance_data_${new Date().toISOString().split("T")[0]}.csv`);
+      link.style.visibility = "hidden";
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Success",
+        description: "Performance data exported successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -266,14 +340,21 @@ const Performance = () => {
           <h1 className="text-3xl font-bold mb-2">Performance Tracking</h1>
           <p className="text-muted-foreground">Monitor and record athletic performance metrics</p>
         </div>
-        {canAddEntry && (
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Entry
-              </Button>
-            </DialogTrigger>
+        <div className="flex gap-2">
+          {(userRole === "coach" || userRole === "admin") && (
+            <Button variant="outline" onClick={handleExportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          )}
+          {canAddEntry && (
+            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Entry
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Add Performance Entry</DialogTitle>
@@ -347,6 +428,7 @@ const Performance = () => {
             </DialogContent>
           </Dialog>
         )}
+        </div>
       </div>
 
       <PerformanceRadarChart currentUserId={currentUserId} userRole={userRole} />
