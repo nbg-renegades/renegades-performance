@@ -67,6 +67,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   }
 
   // Transform data for recharts
+  console.log('Comparison data received:', comparisonData);
   const chartData = Object.keys(comparisonData).length > 0
     ? comparisonData[Object.keys(comparisonData)[0]].map((metric, index) => {
         const dataPoint: any = { metric: metric.metric };
@@ -77,7 +78,9 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       })
     : [];
 
+  console.log('Chart data transformed:', chartData);
   const dataKeys = Object.keys(comparisonData);
+  console.log('Data keys:', dataKeys);
 
   function togglePlayer(playerId: string) {
     setSelectedPlayerIds(prev => 

@@ -46,6 +46,7 @@ export function usePerformanceComparison({
       }
 
       setAllMetricsData(allData as MetricData[]);
+      console.log('All metrics data:', allData);
 
       const result: ComparisonData = {};
 
@@ -71,7 +72,10 @@ export function usePerformanceComparison({
 
         case 'average':
           const avgData = await fetchAverageMetrics();
-          result['Average Player'] = normalizeMetrics(avgData, allData as MetricData[]);
+          console.log('Average data:', avgData);
+          const normalized = normalizeMetrics(avgData, allData as MetricData[]);
+          console.log('Normalized average:', normalized);
+          result['Average Player'] = normalized;
           break;
 
         case 'best':
@@ -105,6 +109,7 @@ export function usePerformanceComparison({
           break;
       }
 
+      console.log('Final result:', result);
       setData(result);
     } catch (error) {
       console.error('Error fetching comparison data:', error);
