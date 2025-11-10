@@ -36,6 +36,8 @@ const Performance = () => {
   const [selectedMetric, setSelectedMetric] = useState<string>("");
   const [editingEntry, setEditingEntry] = useState<PerformanceEntry | null>(null);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [filterMetric, setFilterMetric] = useState<string>("all");
+  const [filterPlayer, setFilterPlayer] = useState<string>("all");
 
   useEffect(() => {
     fetchData();
@@ -250,6 +252,13 @@ const Performance = () => {
 
   const canAddEntry = userRole === "coach" || userRole === "admin" || userRole === "player";
 
+  // Filter entries based on selected filters
+  const filteredEntries = entries.filter(entry => {
+    const matchesMetric = filterMetric === "all" || entry.metric_type === filterMetric;
+    const matchesPlayer = filterPlayer === "all" || entry.player_id === filterPlayer;
+    return matchesMetric && matchesPlayer;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -351,13 +360,49 @@ const Performance = () => {
           <CardDescription>Latest performance measurements</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="flex-1">
+              <Label htmlFor="filter-metric" className="text-sm mb-2 block">Filter by Metric</Label>
+              <Select value={filterMetric} onValueChange={setFilterMetric}>
+                <SelectTrigger id="filter-metric" className="bg-background">
+                  <SelectValue placeholder="All Metrics" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="all">All Metrics</SelectItem>
+                  {Object.entries(metricDisplayNames).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="filter-player" className="text-sm mb-2 block">Filter by Player</Label>
+              <Select value={filterPlayer} onValueChange={setFilterPlayer}>
+                <SelectTrigger id="filter-player" className="bg-background">
+                  <SelectValue placeholder="All Players" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="all">All Players</SelectItem>
+                  {players.map((player) => (
+                    <SelectItem key={player.id} value={player.id}>
+                      {player.first_name} {player.last_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="space-y-3">
-            {entries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
-                No performance entries yet. Add your first entry to get started!
+                {entries.length === 0 
+                  ? "No performance entries yet. Add your first entry to get started!"
+                  : "No entries match your filters. Try adjusting your selection."}
               </p>
             ) : (
-              entries.map((entry) => (
+              filteredEntries.map((entry) => (
                 <div
                   key={entry.id}
                   className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-4"
