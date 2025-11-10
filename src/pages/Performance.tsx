@@ -41,17 +41,22 @@ const Performance = () => {
 
     setCurrentUserId(user.id);
 
-    // Get user role
-    const { data: roleData } = await supabase
+    // Get all user roles (avoid maybeSingle because users can have multiple roles)
+    const { data: rolesData } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("user_id", user.id);
 
-    setUserRole(roleData?.role || "");
+    const roles = (rolesData || []).map((r: any) => r.role);
+    setUserRole(
+      roles.includes("admin") ? "admin" :
+      roles.includes("coach") ? "coach" :
+      roles.includes("player") ? "player" :
+      ""
+    );
 
     // Get all players for coaches/admins
-    if (roleData?.role === "coach" || roleData?.role === "admin") {
+    if (roles.includes("coach") || roles.includes("admin")) {
       const { data: playersData } = await supabase
         .from("profiles")
         .select("id, first_name, last_name, user_roles!inner(role)")
