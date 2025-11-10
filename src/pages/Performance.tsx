@@ -30,6 +30,8 @@ const Performance = () => {
   const [currentUserId, setCurrentUserId] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
+  const [selectedMetric, setSelectedMetric] = useState<string>("");
 
   useEffect(() => {
     fetchData();
@@ -178,7 +180,7 @@ const Performance = () => {
           <p className="text-muted-foreground">Monitor and record athletic performance metrics</p>
         </div>
         {canAddEntry && (
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -194,7 +196,7 @@ const Performance = () => {
                 {(userRole === "coach" || userRole === "admin") && (
                   <div className="space-y-2">
                     <Label htmlFor="player_id">Player</Label>
-                    <Select name="player_id" required>
+                    <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select player" />
                       </SelectTrigger>
@@ -206,6 +208,7 @@ const Performance = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    <input type="hidden" name="player_id" value={selectedPlayerId} />
                   </div>
                 )}
                 {userRole === "player" && (
@@ -213,7 +216,7 @@ const Performance = () => {
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="metric_type">Metric</Label>
-                  <Select name="metric_type" required>
+                  <Select value={selectedMetric} onValueChange={setSelectedMetric}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select metric" />
                     </SelectTrigger>
@@ -225,6 +228,7 @@ const Performance = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  <input type="hidden" name="metric_type" value={selectedMetric} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="value">Value</Label>
@@ -247,7 +251,9 @@ const Performance = () => {
                     defaultValue={new Date().toISOString().split("T")[0]}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={
+                  isLoading || ((userRole === "coach" || userRole === "admin") && !selectedPlayerId) || !selectedMetric
+                }>
                   {isLoading ? "Adding..." : "Add Entry"}
                 </Button>
               </form>
