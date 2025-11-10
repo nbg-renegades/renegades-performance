@@ -53,21 +53,21 @@ export type Database = {
           id: string
           is_primary: boolean | null
           player_id: string
-          position: Database["public"]["Enums"]["position_type"]
+          position: Database["public"]["Enums"]["football_position"]
         }
         Insert: {
           created_at?: string | null
           id?: string
           is_primary?: boolean | null
           player_id: string
-          position: Database["public"]["Enums"]["position_type"]
+          position?: Database["public"]["Enums"]["football_position"]
         }
         Update: {
           created_at?: string | null
           id?: string
           is_primary?: boolean | null
           player_id?: string
-          position?: Database["public"]["Enums"]["position_type"]
+          position?: Database["public"]["Enums"]["football_position"]
         }
         Relationships: []
       }
@@ -128,6 +128,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "coach" | "player"
+      football_position: "QB" | "WR" | "C" | "DB" | "B" | "unassigned"
       metric_type:
         | "vertical_jump"
         | "broad_jump"
@@ -269,6 +270,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "coach", "player"],
+      football_position: ["QB", "WR", "C", "DB", "B", "unassigned"],
       metric_type: [
         "vertical_jump",
         "broad_jump",

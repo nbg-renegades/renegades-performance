@@ -8,6 +8,7 @@ import { usePerformanceComparison, type ComparisonMode } from "@/hooks/usePerfor
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
 
 interface Player {
   id: string;
@@ -60,12 +61,14 @@ const HISTORICAL_OPTIONS = [
 export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRadarChartProps) {
   const [mode, setMode] = useState<ComparisonMode>('average');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [selectedPosition, setSelectedPosition] = useState<string>('QB');
   const [historicalPeriods, setHistoricalPeriods] = useState<number[]>([1, 6, 12]);
   const [players, setPlayers] = useState<Player[]>([]);
 
   const { data: comparisonData, isLoading } = usePerformanceComparison({
     mode,
     selectedPlayerIds,
+    selectedPosition,
     historicalPeriods,
     currentUserId,
     userRole
@@ -125,11 +128,13 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       </CardHeader>
       <CardContent>
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="average">Average</TabsTrigger>
             <TabsTrigger value="best">Best</TabsTrigger>
             <TabsTrigger value="players">Players</TabsTrigger>
-            {userRole === 'player' && <TabsTrigger value="position">Position</TabsTrigger>}
+            <TabsTrigger value="position">Position</TabsTrigger>
+            <TabsTrigger value="offense">Offense</TabsTrigger>
+            <TabsTrigger value="defense">Defense</TabsTrigger>
             {userRole === 'player' && <TabsTrigger value="historical">Historical</TabsTrigger>}
           </TabsList>
 
@@ -179,9 +184,28 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
             </div>
           </TabsContent>
 
+          <TabsContent value="position" className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="position-select">Select Position</Label>
+              <Select value={selectedPosition} onValueChange={setSelectedPosition}>
+                <SelectTrigger id="position-select" className="bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map(pos => (
+                    <SelectItem key={pos} value={pos}>
+                      {POSITION_LABELS[pos]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </TabsContent>
+
           <TabsContent value="average" />
           <TabsContent value="best" />
-          <TabsContent value="position" />
+          <TabsContent value="offense" />
+          <TabsContent value="defense" />
         </Tabs>
 
         <div className="mt-6">

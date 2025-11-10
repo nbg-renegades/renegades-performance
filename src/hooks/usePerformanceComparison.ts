@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeMetrics, createEmptyMetricSet, getAllMetricTypes, type MetricData, type NormalizedMetric } from '@/lib/performanceUtils';
 
-export type ComparisonMode = 'players' | 'average' | 'best' | 'position' | 'historical';
+export type ComparisonMode = 'players' | 'average' | 'best' | 'position' | 'offense' | 'defense' | 'historical';
 
 export interface ComparisonData {
   [key: string]: NormalizedMetric[];
@@ -11,6 +11,7 @@ export interface ComparisonData {
 interface UsePerformanceComparisonProps {
   mode: ComparisonMode;
   selectedPlayerIds: string[];
+  selectedPosition?: string;
   historicalPeriods: number[]; // in months
   currentUserId: string;
   userRole: string;
@@ -19,6 +20,7 @@ interface UsePerformanceComparisonProps {
 export function usePerformanceComparison({
   mode,
   selectedPlayerIds,
+  selectedPosition,
   historicalPeriods,
   currentUserId,
   userRole
@@ -29,7 +31,7 @@ export function usePerformanceComparison({
 
   useEffect(() => {
     fetchComparisonData();
-  }, [mode, selectedPlayerIds, historicalPeriods, currentUserId]);
+  }, [mode, selectedPlayerIds, selectedPosition, historicalPeriods, currentUserId]);
 
   async function fetchComparisonData() {
     setIsLoading(true);
@@ -87,10 +89,20 @@ export function usePerformanceComparison({
           break;
 
         case 'position':
-          if (userRole === 'player') {
-            const positionData = await fetchSamePositionMetrics(currentUserId);
-            result['Position Average'] = normalizeMetrics(positionData, allData as MetricData[]);
+          if (selectedPosition) {
+            const positionData = await fetchPositionAverageMetrics(selectedPosition);
+            result[`${selectedPosition} Average`] = normalizeMetrics(positionData, allData as MetricData[]);
           }
+          break;
+
+        case 'offense':
+          const offenseData = await fetchUnitAverageMetrics('offense');
+          result['Offense Average'] = normalizeMetrics(offenseData, allData as MetricData[]);
+          break;
+
+        case 'defense':
+          const defenseData = await fetchUnitAverageMetrics('defense');
+          result['Defense Average'] = normalizeMetrics(defenseData, allData as MetricData[]);
           break;
 
         case 'historical':
@@ -224,6 +236,103 @@ export function usePerformanceComparison({
     }
 
     const playerIds = [...new Set(samePositionPlayers.map(p => p.player_id))];
+    
+    // Calculate average for each metric
+    const metrics = getAllMetricTypes();
+    const result: MetricData[] = [];
+
+    for (const metric of metrics) {
+      const { data: entries } = await supabase
+        .from('performance_entries')
+        .select('player_id, value')
+        .in('player_id', playerIds)
+        .eq('metric_type', metric)
+        .order('entry_date', { ascending: false });
+
+      if (entries && entries.length > 0) {
+        const playerLatest = new Map<string, number>();
+        entries.forEach(entry => {
+          if (!playerLatest.has(entry.player_id)) {
+            playerLatest.set(entry.player_id, entry.value);
+          }
+        });
+
+        const values = Array.from(playerLatest.values());
+        const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+        result.push({ metric_type: metric, value: average });
+      }
+    }
+
+    return result;
+  }
+
+  async function fetchPositionAverageMetrics(position: string): Promise<MetricData[]> {
+    // Get all players with this position
+    const { data: positionPlayers } = await supabase
+      .from('player_positions')
+      .select('player_id')
+      .eq('position', position as any)
+      .eq('is_primary', true);
+
+    if (!positionPlayers || positionPlayers.length === 0) {
+      return createEmptyMetricSet().map(m => ({ 
+        metric_type: Object.keys(m)[0] as any, 
+        value: 0 
+      }));
+    }
+
+    const playerIds = [...new Set(positionPlayers.map(p => p.player_id))];
+    
+    // Calculate average for each metric
+    const metrics = getAllMetricTypes();
+    const result: MetricData[] = [];
+
+    for (const metric of metrics) {
+      const { data: entries } = await supabase
+        .from('performance_entries')
+        .select('player_id, value')
+        .in('player_id', playerIds)
+        .eq('metric_type', metric)
+        .order('entry_date', { ascending: false });
+
+      if (entries && entries.length > 0) {
+        const playerLatest = new Map<string, number>();
+        entries.forEach(entry => {
+          if (!playerLatest.has(entry.player_id)) {
+            playerLatest.set(entry.player_id, entry.value);
+          }
+        });
+
+        const values = Array.from(playerLatest.values());
+        const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+        result.push({ metric_type: metric, value: average });
+      }
+    }
+
+    return result;
+  }
+
+  async function fetchUnitAverageMetrics(unit: 'offense' | 'defense'): Promise<MetricData[]> {
+    // Define which positions belong to each unit
+    const offensePositions = ['QB', 'WR', 'C'];
+    const defensePositions = ['DB', 'B'];
+    const positions = unit === 'offense' ? offensePositions : defensePositions;
+
+    // Get all players in this unit
+    const { data: unitPlayers } = await supabase
+      .from('player_positions')
+      .select('player_id')
+      .in('position', positions as any)
+      .eq('is_primary', true);
+
+    if (!unitPlayers || unitPlayers.length === 0) {
+      return createEmptyMetricSet().map(m => ({ 
+        metric_type: Object.keys(m)[0] as any, 
+        value: 0 
+      }));
+    }
+
+    const playerIds = [...new Set(unitPlayers.map(p => p.player_id))];
     
     // Calculate average for each metric
     const metrics = getAllMetricTypes();

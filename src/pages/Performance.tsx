@@ -10,6 +10,7 @@ import { Plus, TrendingUp, Pencil, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
+import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 
 interface PerformanceEntry {
   id: string;
@@ -21,6 +22,10 @@ interface PerformanceEntry {
   player?: {
     first_name: string;
     last_name: string;
+    positions?: Array<{
+      position: FootballPosition;
+      is_primary: boolean;
+    }>;
   };
 }
 
@@ -38,6 +43,8 @@ const Performance = () => {
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
   const [filterMetric, setFilterMetric] = useState<string>("all");
   const [filterPlayer, setFilterPlayer] = useState<string>("all");
+  const [filterPosition, setFilterPosition] = useState<string>("all");
+  const [filterUnit, setFilterUnit] = useState<string>("all");
 
   useEffect(() => {
     fetchData();
@@ -97,7 +104,7 @@ const Performance = () => {
       .order("entry_date", { ascending: false })
       .limit(20);
 
-    // Fetch player names separately
+    // Fetch player names and positions separately
     if (entriesData) {
       const playerIds = [...new Set(entriesData.map(e => e.player_id))];
       const { data: profilesData } = await supabase
@@ -105,11 +112,31 @@ const Performance = () => {
         .select("id, first_name, last_name")
         .in("id", playerIds);
 
+      // Fetch positions for each player
+      const { data: positionsData } = await supabase
+        .from("player_positions")
+        .select("player_id, position, is_primary")
+        .in("player_id", playerIds);
+
       const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+      const positionsMap = new Map<string, Array<{ position: FootballPosition; is_primary: boolean }>>();
+      
+      positionsData?.forEach(pos => {
+        if (!positionsMap.has(pos.player_id)) {
+          positionsMap.set(pos.player_id, []);
+        }
+        positionsMap.get(pos.player_id)?.push({
+          position: pos.position as FootballPosition,
+          is_primary: pos.is_primary,
+        });
+      });
       
       const entriesWithProfiles = entriesData.map(entry => ({
         ...entry,
-        player: profilesMap.get(entry.player_id),
+        player: {
+          ...profilesMap.get(entry.player_id),
+          positions: positionsMap.get(entry.player_id) || [],
+        },
       }));
 
       setEntries(entriesWithProfiles as any);
@@ -256,7 +283,27 @@ const Performance = () => {
   const filteredEntries = entries.filter(entry => {
     const matchesMetric = filterMetric === "all" || entry.metric_type === filterMetric;
     const matchesPlayer = filterPlayer === "all" || entry.player_id === filterPlayer;
-    return matchesMetric && matchesPlayer;
+    
+    // Position filter
+    let matchesPosition = true;
+    if (filterPosition !== "all") {
+      const primaryPos = entry.player?.positions?.find(p => p.is_primary);
+      matchesPosition = primaryPos?.position === filterPosition;
+    }
+    
+    // Unit filter (offense/defense)
+    let matchesUnit = true;
+    if (filterUnit !== "all") {
+      const primaryPos = entry.player?.positions?.find(p => p.is_primary);
+      if (primaryPos) {
+        const unit = getPositionUnit(primaryPos.position);
+        matchesUnit = unit === filterUnit;
+      } else {
+        matchesUnit = false;
+      }
+    }
+    
+    return matchesMetric && matchesPlayer && matchesPosition && matchesUnit;
   });
 
   const handleExportCSV = async () => {
@@ -442,7 +489,7 @@ const Performance = () => {
           <CardDescription>Latest performance measurements</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             <div className="flex-1">
               <Label htmlFor="filter-metric" className="text-sm mb-2 block">Filter by Metric</Label>
               <Select value={filterMetric} onValueChange={setFilterMetric}>
@@ -459,19 +506,50 @@ const Performance = () => {
                 </SelectContent>
               </Select>
             </div>
+            {(userRole === "coach" || userRole === "admin") && (
+              <div className="flex-1">
+                <Label htmlFor="filter-player" className="text-sm mb-2 block">Filter by Player</Label>
+                <Select value={filterPlayer} onValueChange={setFilterPlayer}>
+                  <SelectTrigger id="filter-player" className="bg-background">
+                    <SelectValue placeholder="All Players" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="all">All Players</SelectItem>
+                    {players.map((player) => (
+                      <SelectItem key={player.id} value={player.id}>
+                        {player.first_name} {player.last_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex-1">
-              <Label htmlFor="filter-player" className="text-sm mb-2 block">Filter by Player</Label>
-              <Select value={filterPlayer} onValueChange={setFilterPlayer}>
-                <SelectTrigger id="filter-player" className="bg-background">
-                  <SelectValue placeholder="All Players" />
+              <Label htmlFor="filter-position" className="text-sm mb-2 block">Filter by Position</Label>
+              <Select value={filterPosition} onValueChange={setFilterPosition}>
+                <SelectTrigger id="filter-position" className="bg-background">
+                  <SelectValue placeholder="All Positions" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
-                  <SelectItem value="all">All Players</SelectItem>
-                  {players.map((player) => (
-                    <SelectItem key={player.id} value={player.id}>
-                      {player.first_name} {player.last_name}
+                  <SelectItem value="all">All Positions</SelectItem>
+                  {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map((pos) => (
+                    <SelectItem key={pos} value={pos}>
+                      {POSITION_LABELS[pos]}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="filter-unit" className="text-sm mb-2 block">Filter by Unit</Label>
+              <Select value={filterUnit} onValueChange={setFilterUnit}>
+                <SelectTrigger id="filter-unit" className="bg-background">
+                  <SelectValue placeholder="All Units" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  <SelectItem value="all">All Units</SelectItem>
+                  <SelectItem value="offense">Offense</SelectItem>
+                  <SelectItem value="defense">Defense</SelectItem>
                 </SelectContent>
               </Select>
             </div>
