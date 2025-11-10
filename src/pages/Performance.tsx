@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, TrendingUp } from "lucide-react";
+import { Plus, TrendingUp, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 
 interface PerformanceEntry {
@@ -33,6 +34,8 @@ const Performance = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
   const [selectedMetric, setSelectedMetric] = useState<string>("");
+  const [editingEntry, setEditingEntry] = useState<PerformanceEntry | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -162,6 +165,80 @@ const Performance = () => {
     }
   };
 
+  const handleEditEntry = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingEntry) return;
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const value = parseFloat(formData.get("value") as string);
+    const entryDate = formData.get("entry_date") as string;
+
+    try {
+      const { error } = await supabase
+        .from("performance_entries")
+        .update({
+          value: value,
+          entry_date: entryDate,
+        })
+        .eq("id", editingEntry.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Performance entry updated successfully",
+      });
+
+      setEditingEntry(null);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteEntry = async () => {
+    if (!deletingEntryId) return;
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from("performance_entries")
+        .delete()
+        .eq("id", deletingEntryId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Performance entry deleted successfully",
+      });
+
+      setDeletingEntryId(null);
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const canEditEntry = (entry: PerformanceEntry) => {
+    if (userRole === "admin" || userRole === "coach") return true;
+    if (userRole === "player" && entry.player_id === currentUserId) return true;
+    return false;
+  };
+
   const metricDisplayNames: Record<string, string> = {
     "vertical_jump": "Vertical Jump",
     "broad_jump": "Broad Jump",
@@ -283,9 +360,9 @@ const Performance = () => {
               entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-4"
                 >
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold">
                       {entry.player?.first_name} {entry.player?.last_name}
                     </p>
@@ -301,12 +378,103 @@ const Performance = () => {
                       {new Date(entry.entry_date).toLocaleDateString()}
                     </p>
                   </div>
+                  {canEditEntry(entry) && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingEntry(entry)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeletingEntryId(entry.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Performance Entry</DialogTitle>
+            <DialogDescription>Update the performance metric value</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditEntry} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Player</Label>
+              <Input
+                value={editingEntry?.player ? `${editingEntry.player.first_name} ${editingEntry.player.last_name}` : ''}
+                disabled
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Metric</Label>
+              <Input
+                value={editingEntry ? metricDisplayNames[editingEntry.metric_type] : ''}
+                disabled
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_value">Value</Label>
+              <Input
+                id="edit_value"
+                name="value"
+                type="number"
+                step="0.01"
+                required
+                defaultValue={editingEntry?.value}
+                placeholder="Enter value"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit_entry_date">Date</Label>
+              <Input
+                id="edit_entry_date"
+                name="entry_date"
+                type="date"
+                required
+                defaultValue={editingEntry?.entry_date}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Updating..." : "Update Entry"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingEntryId} onOpenChange={(open) => !open && setDeletingEntryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Performance Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this entry? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEntry}
+              disabled={isLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
