@@ -97,13 +97,12 @@ const Performance = () => {
     const entryDate = formData.get("entry_date") as string;
 
     const unitMap: Record<string, string> = {
-      "40yd_dash": "seconds",
       "vertical_jump": "cm",
       "broad_jump": "cm",
+      "40yd_dash": "seconds",
       "3cone_drill": "seconds",
-      "20yd_shuttle": "seconds",
-      "bench_press": "reps",
-      "body_weight": "kg",
+      "shuffle_run": "seconds",
+      "pushups_1min": "reps",
     };
 
     try {
@@ -139,13 +138,12 @@ const Performance = () => {
   };
 
   const metricDisplayNames: Record<string, string> = {
-    "40yd_dash": "40-Yard Dash",
     "vertical_jump": "Vertical Jump",
     "broad_jump": "Broad Jump",
+    "40yd_dash": "40-Yard Dash",
     "3cone_drill": "3-Cone Drill",
-    "20yd_shuttle": "20-Yard Shuttle",
-    "bench_press": "Bench Press",
-    "body_weight": "Body Weight",
+    "shuffle_run": "Shuffle Run",
+    "pushups_1min": "1 Min AMRAP Pushups",
   };
 
   const canAddEntry = userRole === "coach" || userRole === "admin" || userRole === "player";

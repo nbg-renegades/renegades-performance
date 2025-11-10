@@ -129,13 +129,12 @@ export type Database = {
     Enums: {
       app_role: "admin" | "coach" | "player"
       metric_type:
-        | "40yd_dash"
         | "vertical_jump"
         | "broad_jump"
+        | "40yd_dash"
         | "3cone_drill"
-        | "20yd_shuttle"
-        | "bench_press"
-        | "body_weight"
+        | "shuffle_run"
+        | "pushups_1min"
       position_type:
         | "quarterback"
         | "receiver"
@@ -271,13 +270,12 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "coach", "player"],
       metric_type: [
-        "40yd_dash",
         "vertical_jump",
         "broad_jump",
+        "40yd_dash",
         "3cone_drill",
-        "20yd_shuttle",
-        "bench_press",
-        "body_weight",
+        "shuffle_run",
+        "pushups_1min",
       ],
       position_type: [
         "quarterback",
