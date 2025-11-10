@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, UserPlus, Shield } from "lucide-react";
+import { Plus, UserPlus, Shield, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -23,8 +23,10 @@ const Users = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -135,6 +137,84 @@ const Users = () => {
         ? prev.filter(r => r !== role)
         : [...prev, role]
     );
+  };
+
+  const handleEditUser = (user: UserProfile) => {
+    setEditingUser(user);
+    setSelectedRoles(user.roles?.map(r => r.role) || []);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    if (!editingUser) return;
+    
+    if (selectedRoles.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one role",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const firstName = formData.get("first_name") as string;
+    const lastName = formData.get("last_name") as string;
+
+    try {
+      // Update profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          first_name: firstName,
+          last_name: lastName,
+        })
+        .eq("id", editingUser.id);
+
+      if (profileError) throw profileError;
+
+      // Delete existing roles
+      const { error: deleteError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", editingUser.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new roles
+      const roleInserts = selectedRoles.map(role => ({
+        user_id: editingUser.id,
+        role: role as any,
+      }));
+
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert(roleInserts);
+
+      if (roleError) throw roleError;
+
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+      setSelectedRoles([]);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -283,12 +363,21 @@ const Users = () => {
                       <p className="text-sm text-muted-foreground">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    {user.roles?.map((ur, idx) => (
-                      <Badge key={idx} variant={getRoleBadgeVariant(ur.role)} className="capitalize">
-                        {ur.role}
-                      </Badge>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-2">
+                      {user.roles?.map((ur, idx) => (
+                        <Badge key={idx} variant={getRoleBadgeVariant(ur.role)} className="capitalize">
+                          {ur.role}
+                        </Badge>
+                      ))}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditUser(user)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))
@@ -296,6 +385,85 @@ const Users = () => {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>Update team member information and roles</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleUpdateUser} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_first_name">First Name</Label>
+                <Input
+                  id="edit_first_name"
+                  name="first_name"
+                  type="text"
+                  defaultValue={editingUser?.first_name}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_last_name">Last Name</Label>
+                <Input
+                  id="edit_last_name"
+                  name="last_name"
+                  type="text"
+                  defaultValue={editingUser?.last_name}
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={editingUser?.email}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label>Roles (select at least one)</Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-role-admin"
+                    checked={selectedRoles.includes("admin")}
+                    onCheckedChange={() => handleRoleToggle("admin")}
+                  />
+                  <Label htmlFor="edit-role-admin" className="font-normal cursor-pointer">
+                    Admin
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-role-coach"
+                    checked={selectedRoles.includes("coach")}
+                    onCheckedChange={() => handleRoleToggle("coach")}
+                  />
+                  <Label htmlFor="edit-role-coach" className="font-normal cursor-pointer">
+                    Coach
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="edit-role-player"
+                    checked={selectedRoles.includes("player")}
+                    onCheckedChange={() => handleRoleToggle("player")}
+                  />
+                  <Label htmlFor="edit-role-player" className="font-normal cursor-pointer">
+                    Player
+                  </Label>
+                </div>
+              </div>
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Updating..." : "Update User"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
