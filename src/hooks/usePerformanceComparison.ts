@@ -46,10 +46,16 @@ export function usePerformanceComparison({
       }
 
       setAllMetricsData(allData as MetricData[]);
-      console.log('All metrics data:', allData);
 
       const result: ComparisonData = {};
 
+      // Always show current player first if they are a player
+      if (userRole === 'player') {
+        const currentData = await fetchLatestPlayerMetrics(currentUserId);
+        result['You'] = normalizeMetrics(currentData, allData as MetricData[]);
+      }
+
+      // Add comparison data based on mode
       switch (mode) {
         case 'players':
           if (selectedPlayerIds.length > 0) {
@@ -72,21 +78,18 @@ export function usePerformanceComparison({
 
         case 'average':
           const avgData = await fetchAverageMetrics();
-          console.log('Average data:', avgData);
-          const normalized = normalizeMetrics(avgData, allData as MetricData[]);
-          console.log('Normalized average:', normalized);
-          result['Average Player'] = normalized;
+          result['Average'] = normalizeMetrics(avgData, allData as MetricData[]);
           break;
 
         case 'best':
           const bestData = await fetchBestMetrics();
-          result['Best Performance'] = normalizeMetrics(bestData, allData as MetricData[]);
+          result['Best'] = normalizeMetrics(bestData, allData as MetricData[]);
           break;
 
         case 'position':
           if (userRole === 'player') {
             const positionData = await fetchSamePositionMetrics(currentUserId);
-            result['Same Position Avg'] = normalizeMetrics(positionData, allData as MetricData[]);
+            result['Position Average'] = normalizeMetrics(positionData, allData as MetricData[]);
           }
           break;
 
@@ -102,14 +105,10 @@ export function usePerformanceComparison({
                            '3 years ago';
               result[label] = normalizeMetrics(historicalData, allData as MetricData[]);
             }
-            // Add current data
-            const currentData = await fetchLatestPlayerMetrics(currentUserId);
-            result['Current'] = normalizeMetrics(currentData, allData as MetricData[]);
           }
           break;
       }
 
-      console.log('Final result:', result);
       setData(result);
     } catch (error) {
       console.error('Error fetching comparison data:', error);

@@ -20,13 +20,33 @@ interface PerformanceRadarChartProps {
   userRole: string;
 }
 
-const COLORS = [
+const PLAYER_COLOR = 'hsl(45 93% 47%)'; // Gold color for current player
+const COMPARISON_COLOR = 'hsl(var(--muted-foreground))'; // Gray for single comparisons
+
+const MULTI_COLORS = [
   'hsl(var(--chart-1))',
   'hsl(var(--chart-2))',
   'hsl(var(--chart-3))',
   'hsl(var(--chart-4))',
   'hsl(var(--chart-5))',
 ];
+
+function getLineColor(key: string, mode: ComparisonMode, index: number): string {
+  // Current player is always gold
+  if (key === 'You') return PLAYER_COLOR;
+  
+  // Multi-player modes use different colors
+  if (mode === 'players' || mode === 'historical') {
+    return MULTI_COLORS[(index - 1) % MULTI_COLORS.length];
+  }
+  
+  // Single comparison modes use gray
+  return COMPARISON_COLOR;
+}
+
+function getStrokeWidth(key: string): number {
+  return key === 'You' ? 3 : 2;
+}
 
 const HISTORICAL_OPTIONS = [
   { value: 1, label: '1 month ago' },
@@ -67,7 +87,6 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   }
 
   // Transform data for recharts
-  console.log('Comparison data received:', comparisonData);
   const chartData = Object.keys(comparisonData).length > 0
     ? comparisonData[Object.keys(comparisonData)[0]].map((metric, index) => {
         const dataPoint: any = { metric: metric.metric };
@@ -78,9 +97,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       })
     : [];
 
-  console.log('Chart data transformed:', chartData);
   const dataKeys = Object.keys(comparisonData);
-  console.log('Data keys:', dataKeys);
 
   function togglePlayer(playerId: string) {
     setSelectedPlayerIds(prev => 
@@ -188,10 +205,10 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                     key={key}
                     name={key}
                     dataKey={key}
-                    stroke={COLORS[index % COLORS.length]}
-                    fill={COLORS[index % COLORS.length]}
-                    fillOpacity={0.2}
-                    strokeWidth={2}
+                    stroke={getLineColor(key, mode, index)}
+                    fill={getLineColor(key, mode, index)}
+                    fillOpacity={key === 'You' ? 0.3 : 0.1}
+                    strokeWidth={getStrokeWidth(key)}
                   />
                 ))}
                 <Legend 
