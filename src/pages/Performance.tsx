@@ -242,12 +242,12 @@ const Performance = () => {
   };
 
   const metricDisplayNames: Record<string, string> = {
-    "vertical_jump": "Vertical Jump",
-    "broad_jump": "Broad Jump",
-    "40yd_dash": "40-Yard Dash",
-    "3cone_drill": "3-Cone Drill",
-    "shuffle_run": "Shuffle Run",
-    "pushups_1min": "1 Min AMRAP Pushups",
+    "vertical_jump": "Vertical Jump (cm)",
+    "broad_jump": "Broad Jump (cm)",
+    "40yd_dash": "40-Yard Dash (s)",
+    "3cone_drill": "3-Cone Drill (s)",
+    "shuffle_run": "Shuffle Run (s)",
+    "pushups_1min": "1 Min AMRAP Pushups (reps)",
   };
 
   const canAddEntry = userRole === "coach" || userRole === "admin" || userRole === "player";
