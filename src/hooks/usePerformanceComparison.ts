@@ -149,16 +149,29 @@ export function usePerformanceComparison({
     for (const metric of metrics) {
       const isLowerBetter = lowerIsBetter.includes(metric);
       
-      const { data } = await supabase
+      // Get latest entry per player for this metric
+      const { data: latestEntries } = await supabase
         .from('performance_entries')
-        .select('value')
+        .select('player_id, value, entry_date')
         .eq('metric_type', metric)
-        .order('value', { ascending: isLowerBetter })
-        .limit(1)
-        .maybeSingle();
+        .order('entry_date', { ascending: false });
 
-      if (data) {
-        result.push({ metric_type: metric, value: data.value });
+      if (latestEntries && latestEntries.length > 0) {
+        // Get unique players with their latest value
+        const playerLatest = new Map<string, number>();
+        latestEntries.forEach(entry => {
+          if (!playerLatest.has(entry.player_id)) {
+            playerLatest.set(entry.player_id, entry.value);
+          }
+        });
+
+        // Find the best among latest values
+        const values = Array.from(playerLatest.values());
+        const bestValue = isLowerBetter 
+          ? Math.min(...values)
+          : Math.max(...values);
+        
+        result.push({ metric_type: metric, value: bestValue });
       }
     }
 
