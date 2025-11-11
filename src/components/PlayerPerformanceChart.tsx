@@ -108,13 +108,27 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
         .lte('entry_date', endDate.toISOString().split('T')[0])
         .order('entry_date', { ascending: true });
 
-      const formattedData = (data || []).map(entry => ({
-        date: new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
-        value: entry.value,
-        fullDate: entry.entry_date,
-      }));
+      const dbData = data || [];
+      const valueByDate = new Map(dbData.map((entry: any) => [entry.entry_date, entry.value]));
+
+      const dailyData: any[] = [];
+      const cursor = new Date(startDate);
+      cursor.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(0, 0, 0, 0);
+
+      while (cursor <= end) {
+        const iso = cursor.toISOString().split('T')[0];
+        dailyData.push({
+          ts: cursor.getTime(),
+          value: valueByDate.get(iso) ?? null,
+          isoDate: iso,
+          dateLabel: cursor.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
       
-      setChartData(formattedData);
+      setChartData(dailyData);
     } catch (error) {
       console.error('Error fetching chart data:', error);
     } finally {
@@ -123,6 +137,25 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
   }
 
   const chartHeight = isMobile ? 250 : 400;
+
+  // Compute fixed timeframe boundaries (start and end at midnight) for X-axis domain
+  const endDateAxis = new Date();
+  endDateAxis.setHours(0, 0, 0, 0);
+  const startDateAxis = new Date(endDateAxis);
+  startDateAxis.setMonth(startDateAxis.getMonth() - ZOOM_LEVELS[zoomLevel].months);
+  const startTs = startDateAxis.getTime();
+  const endTs = endDateAxis.getTime();
+
+  const formatXAxisTick = (ts: number) => {
+    const months = ZOOM_LEVELS[zoomLevel].months;
+    const options: Intl.DateTimeFormatOptions =
+      months <= 1
+        ? { month: 'short', day: 'numeric' }
+        : months <= 6
+          ? { month: 'short', day: 'numeric' }
+          : { month: 'short', year: '2-digit' };
+    return new Date(ts).toLocaleDateString('en-US', options);
+  };
 
   return (
     <Card>
@@ -185,8 +218,12 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
             <ResponsiveContainer width="100%" height={chartHeight}>
               <LineChart data={chartData} margin={{ bottom: isMobile ? 20 : 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="date" 
+                <XAxis
+                  dataKey="ts"
+                  type="number"
+                  domain={[startTs, endTs]}
+                  scale="time"
+                  tickFormatter={(value) => formatXAxisTick(value as number)}
                   tick={{ fill: 'hsl(var(--foreground))', fontSize: isMobile ? 10 : 12 }}
                   angle={isMobile ? -45 : 0}
                   textAnchor={isMobile ? 'end' : 'middle'}
@@ -209,6 +246,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                     color: 'hsl(var(--popover-foreground))'
                   }}
                   formatter={(value: any) => [`${value} ${METRICS[selectedMetric].unit}`, METRICS[selectedMetric].label]}
+                  labelFormatter={(label: any) =>
+                    new Date(label as number).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+                  }
                 />
                 <Legend 
                   wrapperStyle={{ paddingTop: isMobile ? '10px' : '20px', fontSize: isMobile ? '10px' : '12px' }}
