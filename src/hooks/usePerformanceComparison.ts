@@ -47,9 +47,9 @@ export function usePerformanceComparison({
 
       const result: ComparisonData = {};
 
-      // Always show current player first if they are a player
-      if (userRole === 'player') {
-        const currentData = await fetchLatestPlayerMetrics(currentUserId);
+      // Always try to show current user's data (regardless of role)
+      const currentData = await fetchLatestPlayerMetrics(currentUserId);
+      if (currentData.length > 0) {
         result['You'] = normalizeMetrics(currentData, allData as MetricData[]);
       }
 
@@ -98,7 +98,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('entry_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
         result.push(data as MetricData);
@@ -153,7 +153,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('value', { ascending: isLowerBetter })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
         result.push({ metric_type: metric, value: data.value });
