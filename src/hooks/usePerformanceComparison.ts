@@ -148,7 +148,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('entry_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
         result.push(data as MetricData);
@@ -203,7 +203,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('value', { ascending: isLowerBetter })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
         result.push({ metric_type: metric, value: data.value });
@@ -219,7 +219,7 @@ export function usePerformanceComparison({
       .from('player_positions')
       .select('position')
       .eq('player_id', playerId)
-      .single();
+      .maybeSingle();
 
     if (!positionData) {
       return createEmptyMetricSet().map(m => ({ 
@@ -260,7 +260,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('value', { ascending: isLowerBetter })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
         result.push({ metric_type: metric, value: data.value });
@@ -447,7 +447,7 @@ export function usePerformanceComparison({
         .lte('entry_date', endDate.toISOString().split('T')[0])
         .order('entry_date', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
         result.push(data as MetricData);
