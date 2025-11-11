@@ -35,30 +35,95 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const [mode, setMode] = useState<ComparisonMode>('best');
   const [selectedPosition, setSelectedPosition] = useState<string>('QB');
   const [playerUnit, setPlayerUnit] = useState<'offense' | 'defense' | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
+  const [isCoach, setIsCoach] = useState(false);
 
   const { data: comparisonData, isLoading } = usePerformanceComparison({
     mode,
     selectedPosition,
-    currentUserId,
+    currentUserId: selectedPlayerId || currentUserId,
     userRole
   });
 
   useEffect(() => {
-    // Always check player unit, regardless of role
-    fetchPlayerUnit();
-  }, [currentUserId]);
+    // Check if user is a coach
+    const checkCoach = userRole === 'coach' || userRole === 'admin';
+    setIsCoach(checkCoach);
 
-  async function fetchPlayerUnit() {
+    // If coach, fetch all players and set default
+    if (checkCoach) {
+      fetchAllPlayers();
+    } else {
+      // Always check player unit for non-coaches
+      fetchPlayerUnit();
+    }
+  }, [currentUserId, userRole]);
+
+  useEffect(() => {
+    // Update player unit when selected player changes
+    if (selectedPlayerId) {
+      fetchPlayerUnit(selectedPlayerId);
+    } else if (!isCoach) {
+      fetchPlayerUnit();
+    }
+  }, [selectedPlayerId, isCoach]);
+
+  async function fetchPlayerUnit(playerId?: string) {
+    const targetId = playerId || currentUserId;
     const { data } = await supabase
       .from('player_positions')
       .select('position')
-      .eq('player_id', currentUserId)
+      .eq('player_id', targetId)
       .maybeSingle();
     
     if (data) {
       const position = data.position as FootballPosition;
       const unit = getPositionUnit(position);
       setPlayerUnit(unit);
+    } else {
+      setPlayerUnit(null);
+    }
+  }
+
+  async function fetchAllPlayers() {
+    // Fetch all players with positions
+    const { data: playerData } = await supabase
+      .from('player_positions')
+      .select('player_id, position');
+    
+    if (!playerData) return;
+
+    // Fetch profile information for all players
+    const playerIds = playerData.map(p => p.player_id);
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', playerIds);
+
+    if (!profiles) return;
+
+    const playerList = profiles.map(profile => ({
+      id: profile.id,
+      name: `${profile.first_name} ${profile.last_name}`
+    }));
+
+    setPlayers(playerList);
+
+    // Check if current coach is also a player
+    const coachIsPlayer = playerData.some(p => p.player_id === currentUserId);
+    
+    if (coachIsPlayer) {
+      setSelectedPlayerId(currentUserId);
+      const position = playerData.find(p => p.player_id === currentUserId)?.position as FootballPosition;
+      if (position) {
+        const unit = getPositionUnit(position);
+        setPlayerUnit(unit);
+      }
+    } else {
+      // Default to empty for non-player coaches
+      setSelectedPlayerId('');
+      setPlayerUnit(null);
     }
   }
 
@@ -89,6 +154,24 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {isCoach && (
+          <div className="mb-4 space-y-2">
+            <Label htmlFor="player-select">Select Player</Label>
+            <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+              <SelectTrigger id="player-select" className="bg-background">
+                <SelectValue placeholder="Select a player..." />
+              </SelectTrigger>
+              <SelectContent className="bg-popover z-50">
+                {players.map(player => (
+                  <SelectItem key={player.id} value={player.id}>
+                    {player.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
           <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <TabsTrigger value="best">Best Overall</TabsTrigger>
