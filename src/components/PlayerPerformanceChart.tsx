@@ -46,9 +46,18 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('vertical_jump');
   const [chartData, setChartData] = useState<any[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [activePlayerId, setActivePlayerId] = useState<string>(selectedPlayerId || currentUserId);
+  const [activePlayerId, setActivePlayerId] = useState<string>(currentUserId);
   const [isLoading, setIsLoading] = useState(false);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    // Set initial player ID
+    if (selectedPlayerId) {
+      setActivePlayerId(selectedPlayerId);
+    } else if (currentUserId) {
+      setActivePlayerId(currentUserId);
+    }
+  }, [selectedPlayerId, currentUserId]);
 
   useEffect(() => {
     if (userRole === 'coach' || userRole === 'admin') {
@@ -57,7 +66,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
   }, [userRole]);
 
   useEffect(() => {
-    fetchChartData();
+    if (activePlayerId) {
+      fetchChartData();
+    }
   }, [zoomLevel, selectedMetric, activePlayerId]);
 
   async function fetchPlayers() {
