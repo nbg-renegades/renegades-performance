@@ -13,15 +13,22 @@ interface MetricStatus {
   bestValue?: number;
 }
 
+interface TeamBestMetric {
+  metric: MetricType;
+  value: number;
+}
+
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalPlayers: 0,
     recentEntries: 0,
-    userRole: "",
+    userRoles: [] as string[],
     userName: "",
     userId: "",
   });
   const [metricStatuses, setMetricStatuses] = useState<MetricStatus[]>([]);
+  const [teamBestAllTime, setTeamBestAllTime] = useState<TeamBestMetric[]>([]);
+  const [teamBestSixMonths, setTeamBestSixMonths] = useState<TeamBestMetric[]>([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -32,6 +39,10 @@ const Dashboard = () => {
       fetchMetricStatuses();
     }
   }, [stats.userId]);
+
+  useEffect(() => {
+    fetchTeamBestPerformances();
+  }, []);
 
   const fetchDashboardData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,11 +61,7 @@ const Dashboard = () => {
       .select("role")
       .eq("user_id", user.id);
     
-    // Prioritize roles: admin > coach > player
     const roles = (rolesData || []).map((r: any) => r.role);
-    const primaryRole = roles.includes("admin") ? "admin" :
-                       roles.includes("coach") ? "coach" :
-                       roles.includes("player") ? "player" : "";
 
     // Get total players
     const { count: playerCount } = await supabase
@@ -74,10 +81,53 @@ const Dashboard = () => {
     setStats({
       totalPlayers: playerCount || 0,
       recentEntries: entriesCount || 0,
-      userRole: primaryRole,
+      userRoles: roles,
       userName: profile ? `${profile.first_name} ${profile.last_name}` : "",
       userId: user.id,
     });
+  };
+
+  const fetchTeamBestPerformances = async () => {
+    const allMetrics = getAllMetricTypes();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const allTimeResults: TeamBestMetric[] = [];
+    const sixMonthResults: TeamBestMetric[] = [];
+
+    for (const metric of allMetrics) {
+      const isLowerBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'].includes(metric);
+
+      // All-time best
+      const { data: allTimeData } = await supabase
+        .from('performance_entries')
+        .select('value')
+        .eq('metric_type', metric)
+        .order('value', { ascending: isLowerBetter })
+        .limit(1)
+        .maybeSingle();
+
+      if (allTimeData) {
+        allTimeResults.push({ metric, value: allTimeData.value });
+      }
+
+      // Last 6 months best
+      const { data: sixMonthData } = await supabase
+        .from('performance_entries')
+        .select('value')
+        .eq('metric_type', metric)
+        .gte('entry_date', sixMonthsAgo.toISOString().split('T')[0])
+        .order('value', { ascending: isLowerBetter })
+        .limit(1)
+        .maybeSingle();
+
+      if (sixMonthData) {
+        sixMonthResults.push({ metric, value: sixMonthData.value });
+      }
+    }
+
+    setTeamBestAllTime(allTimeResults);
+    setTeamBestSixMonths(sixMonthResults);
   };
 
   const fetchMetricStatuses = async () => {
@@ -130,17 +180,22 @@ const Dashboard = () => {
     setMetricStatuses(statuses);
   };
 
-  const roleDisplayName = {
+  const roleDisplayNames = {
     admin: "Administrator",
     coach: "Coach",
     player: "Player",
-  }[stats.userRole] || "User";
+  };
+
+  const displayRoles = stats.userRoles.map(role => roleDisplayNames[role as keyof typeof roleDisplayNames]).filter(Boolean).join(", ") || "User";
+  const primaryRole = stats.userRoles.includes("admin") ? "admin" :
+                     stats.userRoles.includes("coach") ? "coach" :
+                     stats.userRoles.includes("player") ? "player" : "";
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold mb-2">Welcome back, {stats.userName || "User"}!</h1>
-        <p className="text-muted-foreground">Role: {roleDisplayName}</p>
+        <p className="text-muted-foreground">Role: {displayRoles}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -168,14 +223,65 @@ const Dashboard = () => {
 
         <Card className="border-border/50 shadow-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Your Role</CardTitle>
+            <CardTitle className="text-sm font-medium">Your Role{stats.userRoles.length > 1 ? 's' : ''}</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{roleDisplayName}</div>
-            <p className="text-xs text-muted-foreground mt-1">Current access level</p>
+            <div className="text-2xl font-bold text-primary">{displayRoles}</div>
+            <p className="text-xs text-muted-foreground mt-1">Access level{stats.userRoles.length > 1 ? 's' : ''}</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Team Best Performances */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {teamBestAllTime.length > 0 && (
+          <Card className="border-border/50 shadow-card">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                <CardTitle>Team Best Performances (All-Time)</CardTitle>
+              </div>
+              <CardDescription>Best recorded values across all team members</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3">
+                {teamBestAllTime.map(m => (
+                  <div key={m.metric} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                    <span className="text-sm font-medium">{METRIC_LABELS[m.metric]}</span>
+                    <span className="text-lg font-bold text-primary">
+                      {m.value.toFixed(2)} <span className="text-sm text-muted-foreground">[{METRIC_UNITS[m.metric]}]</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {teamBestSixMonths.length > 0 && (
+          <Card className="border-border/50 shadow-card">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                <CardTitle>Team Best Performances (Last 6 Months)</CardTitle>
+              </div>
+              <CardDescription>Best recorded values in the last 6 months</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3">
+                {teamBestSixMonths.map(m => (
+                  <div key={m.metric} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
+                    <span className="text-sm font-medium">{METRIC_LABELS[m.metric]}</span>
+                    <span className="text-lg font-bold text-primary">
+                      {m.value.toFixed(2)} <span className="text-sm text-muted-foreground">[{METRIC_UNITS[m.metric]}]</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Metric Status Alerts */}
@@ -251,19 +357,19 @@ const Dashboard = () => {
           <CardDescription>What would you like to do today?</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {(stats.userRole === "coach" || stats.userRole === "admin") && (
+          {(primaryRole === "coach" || primaryRole === "admin") && (
             <div className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
               <h3 className="font-semibold mb-1">Add Performance Entry</h3>
               <p className="text-sm text-muted-foreground">Record new metrics for players</p>
             </div>
           )}
-          {stats.userRole === "player" && (
+          {primaryRole === "player" && (
             <div className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
               <h3 className="font-semibold mb-1">View My Progress</h3>
               <p className="text-sm text-muted-foreground">Check your performance trends</p>
             </div>
           )}
-          {stats.userRole === "admin" && (
+          {primaryRole === "admin" && (
             <div className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
               <h3 className="font-semibold mb-1">Manage Users</h3>
               <p className="text-sm text-muted-foreground">Add or edit team members</p>
