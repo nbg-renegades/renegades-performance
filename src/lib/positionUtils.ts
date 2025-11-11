@@ -41,4 +41,5 @@ export interface PlayerPosition {
   id: string;
   player_id: string;
   position: FootballPosition;
+  is_primary: boolean;
 }

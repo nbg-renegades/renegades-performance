@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeMetrics, createEmptyMetricSet, getAllMetricTypes, type MetricData, type NormalizedMetric } from '@/lib/performanceUtils';
 
-export type ComparisonMode = 'players' | 'average' | 'best' | 'my_position' | 'position' | 'offense' | 'defense' | 'historical';
+export type ComparisonMode = 'players' | 'average' | 'best' | 'position' | 'offense' | 'defense' | 'historical';
 
 export interface ComparisonData {
   [key: string]: NormalizedMetric[];
@@ -85,14 +85,7 @@ export function usePerformanceComparison({
 
         case 'best':
           const bestData = await fetchBestMetrics();
-          result['Best Overall'] = normalizeMetrics(bestData, allData as MetricData[]);
-          break;
-
-        case 'my_position':
-          if (userRole === 'player') {
-            const myPositionData = await fetchMyPositionBestMetrics(currentUserId);
-            result['My Position Best'] = normalizeMetrics(myPositionData, allData as MetricData[]);
-          }
+          result['Best'] = normalizeMetrics(bestData, allData as MetricData[]);
           break;
 
         case 'position':
@@ -148,7 +141,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('entry_date', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .single();
 
       if (data) {
         result.push(data as MetricData);
@@ -203,64 +196,7 @@ export function usePerformanceComparison({
         .eq('metric_type', metric)
         .order('value', { ascending: isLowerBetter })
         .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        result.push({ metric_type: metric, value: data.value });
-      }
-    }
-
-    return result;
-  }
-
-  async function fetchMyPositionBestMetrics(playerId: string): Promise<MetricData[]> {
-    // Get player's position
-    const { data: positionData } = await supabase
-      .from('player_positions')
-      .select('position')
-      .eq('player_id', playerId)
-      .maybeSingle();
-
-    if (!positionData) {
-      return createEmptyMetricSet().map(m => ({ 
-        metric_type: Object.keys(m)[0] as any, 
-        value: 0 
-      }));
-    }
-
-    const position = positionData.position;
-
-    // Get all players with the same position
-    const { data: samePositionPlayers } = await supabase
-      .from('player_positions')
-      .select('player_id')
-      .eq('position', position);
-
-    if (!samePositionPlayers || samePositionPlayers.length === 0) {
-      return createEmptyMetricSet().map(m => ({ 
-        metric_type: Object.keys(m)[0] as any, 
-        value: 0 
-      }));
-    }
-
-    const playerIds = samePositionPlayers.map(p => p.player_id);
-
-    // Get the best performance for each metric among players with this position
-    const metrics = getAllMetricTypes();
-    const lowerIsBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'];
-    const result: MetricData[] = [];
-
-    for (const metric of metrics) {
-      const isLowerBetter = lowerIsBetter.includes(metric);
-      
-      const { data } = await supabase
-        .from('performance_entries')
-        .select('value')
-        .in('player_id', playerIds)
-        .eq('metric_type', metric)
-        .order('value', { ascending: isLowerBetter })
-        .limit(1)
-        .maybeSingle();
+        .single();
 
       if (data) {
         result.push({ metric_type: metric, value: data.value });
@@ -335,7 +271,8 @@ export function usePerformanceComparison({
     const { data: positionPlayers } = await supabase
       .from('player_positions')
       .select('player_id')
-      .eq('position', position as any);
+      .eq('position', position as any)
+      .eq('is_primary', true);
 
     if (!positionPlayers || positionPlayers.length === 0) {
       return createEmptyMetricSet().map(m => ({ 
@@ -385,7 +322,8 @@ export function usePerformanceComparison({
     const { data: unitPlayers } = await supabase
       .from('player_positions')
       .select('player_id')
-      .in('position', positions as any);
+      .in('position', positions as any)
+      .eq('is_primary', true);
 
     if (!unitPlayers || unitPlayers.length === 0) {
       return createEmptyMetricSet().map(m => ({ 
@@ -447,7 +385,7 @@ export function usePerformanceComparison({
         .lte('entry_date', endDate.toISOString().split('T')[0])
         .order('entry_date', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .single();
 
       if (data) {
         result.push(data as MetricData);
