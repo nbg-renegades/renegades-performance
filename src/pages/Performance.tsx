@@ -604,7 +604,27 @@ const Performance = () => {
         description="Update the performance metric value"
       >
         <form onSubmit={handleEditEntry} className="space-y-4">
-...
+          <div className="space-y-2">
+            <Label htmlFor="edit-value">Value</Label>
+            <Input
+              id="edit-value"
+              name="value"
+              type="number"
+              step="0.01"
+              defaultValue={editingEntry?.value}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-entry-date">Date</Label>
+            <Input
+              id="edit-entry-date"
+              name="entry_date"
+              type="date"
+              defaultValue={editingEntry?.entry_date}
+              required
+            />
+          </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Updating..." : "Update Entry"}
           </Button>

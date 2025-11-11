@@ -456,7 +456,60 @@ const Users = () => {
         description="Update team member information and roles"
       >
         <form onSubmit={handleUpdateUser} className="space-y-4">
-...
+          <div className="space-y-2">
+            <Label htmlFor="edit-first-name">First Name</Label>
+            <Input
+              id="edit-first-name"
+              name="first_name"
+              type="text"
+              defaultValue={editingUser?.first_name}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-last-name">Last Name</Label>
+            <Input
+              id="edit-last-name"
+              name="last_name"
+              type="text"
+              defaultValue={editingUser?.last_name}
+              required
+            />
+          </div>
+          <div className="space-y-3">
+            <Label>Roles</Label>
+            <div className="space-y-2">
+              {["admin", "coach", "player"].map((role) => (
+                <div key={role} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`edit-role-${role}`}
+                    checked={selectedRoles.includes(role)}
+                    onCheckedChange={() => handleRoleToggle(role)}
+                  />
+                  <Label htmlFor={`edit-role-${role}`} className="capitalize cursor-pointer">
+                    {role}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+          {selectedRoles.includes('player') && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-position">Position</Label>
+              <Select value={primaryPosition} onValueChange={(val) => setPrimaryPosition(val as FootballPosition)}>
+                <SelectTrigger id="edit-position" className="bg-background">
+                  <SelectValue placeholder="Select Position" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  {POSITION_OPTIONS.map((pos) => (
+                    <SelectItem key={pos} value={pos}>
+                      {POSITION_LABELS[pos]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Updating..." : "Update User"}
           </Button>
