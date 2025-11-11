@@ -85,7 +85,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       <CardHeader>
         <CardTitle>Performance Comparison</CardTitle>
         <CardDescription>
-          Compare your latest performance against reference benchmarks. The outer ring shows the best recorded value for each metric, while your performance is shown in the inner area. All metrics are scaled 0-100 where 100 = best performance.
+          Compare your latest performance against reference benchmarks. All metrics are scaled 0-100 where 100 = best performance. For time-based metrics, 0 = twice the best time; for distance/reps, 0 = zero performance.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -180,11 +180,10 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
           <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
             <h4 className="font-semibold text-foreground">How the 0-100 Scale Works</h4>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
-              <li><strong>100 = Best performance</strong> recorded across all players</li>
-              <li><strong>0 = Baseline</strong> (lowest recorded performance)</li>
-              <li><strong>Time metrics</strong> (40yd dash, 3-cone, shuffle run): Faster time = Higher score</li>
-              <li><strong>Distance/Reps</strong> (jumps, pushups): Higher value = Higher score</li>
-              <li><strong>Your score</strong> shows where you stand relative to the best performance</li>
+              <li><strong>100 = Best performance</strong> (fastest time or highest distance/reps)</li>
+              <li><strong>0 = Baseline</strong> (twice the best time for speed; zero for distance/reps)</li>
+              <li><strong>Time metrics:</strong> If best is 5s, then 5s=100, 10s=0</li>
+              <li><strong>Distance/Reps:</strong> If best is 200cm, then 200cm=100, 0cm=0</li>
             </ul>
           </div>
         </div>

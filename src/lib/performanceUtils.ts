@@ -36,29 +36,34 @@ export const METRIC_UNITS: Record<MetricType, string> = {
 
 /**
  * Normalize metrics to 0-100 scale where 100 is always best
+ * For time metrics: 0 = 2x best time, 100 = best time
+ * For distance/reps: 0 = actual 0, 100 = best value
  */
 export function normalizeMetrics(
   data: MetricData[],
   allData: MetricData[]
 ): NormalizedMetric[] {
-  // Calculate min/max for each metric across all data
-  const ranges = new Map<MetricType, { min: number; max: number }>();
+  // Find best performance for each metric
+  const bestValues = new Map<MetricType, number>();
   
   allData.forEach(item => {
-    const current = ranges.get(item.metric_type);
-    if (!current) {
-      ranges.set(item.metric_type, { min: item.value, max: item.value });
+    const current = bestValues.get(item.metric_type);
+    const isLowerBetter = LOWER_IS_BETTER.includes(item.metric_type);
+    
+    if (current === undefined) {
+      bestValues.set(item.metric_type, item.value);
     } else {
-      ranges.set(item.metric_type, {
-        min: Math.min(current.min, item.value),
-        max: Math.max(current.max, item.value)
-      });
+      if (isLowerBetter) {
+        bestValues.set(item.metric_type, Math.min(current, item.value));
+      } else {
+        bestValues.set(item.metric_type, Math.max(current, item.value));
+      }
     }
   });
 
   return data.map(item => {
-    const range = ranges.get(item.metric_type);
-    if (!range || range.max === range.min) {
+    const bestValue = bestValues.get(item.metric_type);
+    if (bestValue === undefined) {
       return {
         metric: METRIC_LABELS[item.metric_type],
         value: 50,
@@ -71,11 +76,22 @@ export function normalizeMetrics(
     const isLowerBetter = LOWER_IS_BETTER.includes(item.metric_type);
 
     if (isLowerBetter) {
-      // For time-based metrics, lower is better
-      normalized = ((range.max - item.value) / (range.max - range.min)) * 100;
+      // For time metrics: baseline (0) = best * 2, best performance (100) = best
+      const baseline = bestValue * 2;
+      const range = baseline - bestValue;
+      
+      if (range === 0) {
+        normalized = 100;
+      } else {
+        normalized = Math.max(0, Math.min(100, ((baseline - item.value) / range) * 100));
+      }
     } else {
-      // For distance/reps metrics, higher is better
-      normalized = ((item.value - range.min) / (range.max - range.min)) * 100;
+      // For distance/reps: baseline (0) = 0, best performance (100) = best value
+      if (bestValue === 0) {
+        normalized = 0;
+      } else {
+        normalized = Math.max(0, Math.min(100, (item.value / bestValue) * 100));
+      }
     }
 
     return {
