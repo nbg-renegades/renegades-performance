@@ -120,7 +120,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
       
       setChartData(formattedData);
     } catch (error) {
-      console.error('Error fetching chart data:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching chart data:', error);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -80,7 +80,9 @@ export function usePerformanceComparison({
 
       setData(result);
     } catch (error) {
-      console.error('Error fetching comparison data:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching comparison data:', error);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -289,7 +289,9 @@ const Users = () => {
           .eq("player_id", editingUser.id);
 
         if (deleteError) {
-          console.error("Error deleting positions:", deleteError);
+          if (import.meta.env.DEV) {
+            console.error("Error deleting positions:", deleteError);
+          }
           throw deleteError;
         }
 
@@ -305,7 +307,9 @@ const Users = () => {
             }]);
 
           if (posError) {
-            console.error("Error inserting position:", posError);
+            if (import.meta.env.DEV) {
+              console.error("Error inserting position:", posError);
+            }
             throw posError;
           }
         }
