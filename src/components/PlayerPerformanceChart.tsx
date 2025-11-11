@@ -194,9 +194,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
         </div>
 
         <Tabs value={zoomLevel} onValueChange={(v) => setZoomLevel(v as ZoomLevel)} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto">
             {Object.entries(ZOOM_LEVELS).map(([key, { label }]) => (
-              <TabsTrigger key={key} value={key} className="text-xs md:text-sm">
+              <TabsTrigger key={key} value={key} className="text-xs md:text-sm px-2 py-2 data-[state=active]:bg-background">
                 {label}
               </TabsTrigger>
             ))}
@@ -212,7 +212,6 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
               <div className="mb-2 text-sm text-muted-foreground text-center">
                 Showing: {startDateAxis.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} — {endDateAxis.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 {chartData.length === 0 && <span className="text-orange-500 ml-2">(No data in this range)</span>}
-                {chartData.length === 1 && <span className="text-blue-500 ml-2">(1 entry - add more to see trend line)</span>}
               </div>
               <ResponsiveContainer width="100%" height={chartHeight}>
               <LineChart data={chartData} margin={{ bottom: isMobile ? 20 : 10 }}>

@@ -475,7 +475,7 @@ const Performance = () => {
           <CardDescription>Latest performance measurements</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div className={`grid gap-3 mb-4 ${userRole === "player" ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-4"}`}>
             <div className="flex-1">
               <Label htmlFor="filter-metric" className="text-sm mb-2 block">Filter by Metric</Label>
               <Select value={filterMetric} onValueChange={setFilterMetric}>
@@ -493,52 +493,54 @@ const Performance = () => {
               </Select>
             </div>
             {(userRole === "coach" || userRole === "admin") && (
-              <div className="flex-1">
-                <Label htmlFor="filter-player" className="text-sm mb-2 block">Filter by Player</Label>
-                <Select value={filterPlayer} onValueChange={setFilterPlayer}>
-                  <SelectTrigger id="filter-player" className="bg-background">
-                    <SelectValue placeholder="All Players" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
-                    <SelectItem value="all">All Players</SelectItem>
-                    {players.map((player) => (
-                      <SelectItem key={player.id} value={player.id}>
-                        {player.first_name} {player.last_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div className="flex-1">
+                  <Label htmlFor="filter-player" className="text-sm mb-2 block">Filter by Player</Label>
+                  <Select value={filterPlayer} onValueChange={setFilterPlayer}>
+                    <SelectTrigger id="filter-player" className="bg-background">
+                      <SelectValue placeholder="All Players" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">All Players</SelectItem>
+                      {players.map((player) => (
+                        <SelectItem key={player.id} value={player.id}>
+                          {player.first_name} {player.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="filter-position" className="text-sm mb-2 block">Filter by Position</Label>
+                  <Select value={filterPosition} onValueChange={setFilterPosition}>
+                    <SelectTrigger id="filter-position" className="bg-background">
+                      <SelectValue placeholder="All Positions" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">All Positions</SelectItem>
+                      {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map((pos) => (
+                        <SelectItem key={pos} value={pos}>
+                          {POSITION_LABELS[pos]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="filter-unit" className="text-sm mb-2 block">Filter by Unit</Label>
+                  <Select value={filterUnit} onValueChange={setFilterUnit}>
+                    <SelectTrigger id="filter-unit" className="bg-background">
+                      <SelectValue placeholder="All Units" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">All Units</SelectItem>
+                      <SelectItem value="offense">Offense</SelectItem>
+                      <SelectItem value="defense">Defense</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
             )}
-            <div className="flex-1">
-              <Label htmlFor="filter-position" className="text-sm mb-2 block">Filter by Position</Label>
-              <Select value={filterPosition} onValueChange={setFilterPosition}>
-                <SelectTrigger id="filter-position" className="bg-background">
-                  <SelectValue placeholder="All Positions" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  <SelectItem value="all">All Positions</SelectItem>
-                  {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map((pos) => (
-                    <SelectItem key={pos} value={pos}>
-                      {POSITION_LABELS[pos]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="filter-unit" className="text-sm mb-2 block">Filter by Unit</Label>
-              <Select value={filterUnit} onValueChange={setFilterUnit}>
-                <SelectTrigger id="filter-unit" className="bg-background">
-                  <SelectValue placeholder="All Units" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  <SelectItem value="all">All Units</SelectItem>
-                  <SelectItem value="offense">Offense</SelectItem>
-                  <SelectItem value="defense">Defense</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <div className="space-y-3">
             {filteredEntries.length === 0 ? (

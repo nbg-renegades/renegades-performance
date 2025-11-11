@@ -173,34 +173,36 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
         )}
 
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
-          <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'}`}>
-            <TabsTrigger value="best">Best Overall</TabsTrigger>
-            <TabsTrigger value="position">My Position</TabsTrigger>
+          <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'} h-auto`}>
+            <TabsTrigger value="best" className="px-2 py-2 data-[state=active]:bg-background">Best Overall</TabsTrigger>
+            <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background">My Position</TabsTrigger>
             {(playerUnit === null || playerUnit === 'offense') && (
-              <TabsTrigger value="offense">Offense</TabsTrigger>
+              <TabsTrigger value="offense" className="px-2 py-2 data-[state=active]:bg-background">Offense</TabsTrigger>
             )}
             {(playerUnit === null || playerUnit === 'defense') && (
-              <TabsTrigger value="defense">Defense</TabsTrigger>
+              <TabsTrigger value="defense" className="px-2 py-2 data-[state=active]:bg-background">Defense</TabsTrigger>
             )}
           </TabsList>
 
-          <TabsContent value="position" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="position-select">Select Position</Label>
-              <Select value={selectedPosition} onValueChange={setSelectedPosition}>
-                <SelectTrigger id="position-select" className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map(pos => (
-                    <SelectItem key={pos} value={pos}>
-                      {POSITION_LABELS[pos]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
+          {!isCoach && userRole === 'player' ? null : (
+            <TabsContent value="position" className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="position-select">Select Position</Label>
+                <Select value={selectedPosition} onValueChange={setSelectedPosition}>
+                  <SelectTrigger id="position-select" className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map(pos => (
+                      <SelectItem key={pos} value={pos}>
+                        {POSITION_LABELS[pos]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+          )}
 
           <TabsContent value="best" />
           <TabsContent value="offense" />
