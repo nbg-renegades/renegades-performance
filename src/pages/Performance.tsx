@@ -10,6 +10,7 @@ import { Plus, TrendingUp, Pencil, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
+import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 import { performanceEntrySchema } from "@/lib/validation";
 import { z } from "zod";
@@ -24,10 +25,7 @@ interface PerformanceEntry {
   player?: {
     first_name: string;
     last_name: string;
-    positions?: Array<{
-      position: FootballPosition;
-      is_primary: boolean;
-    }>;
+    position?: FootballPosition;
   };
 }
 
@@ -117,27 +115,21 @@ const Performance = () => {
       // Fetch positions for each player
       const { data: positionsData } = await supabase
         .from("player_positions")
-        .select("player_id, position, is_primary")
+        .select("player_id, position")
         .in("player_id", playerIds);
 
       const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
-      const positionsMap = new Map<string, Array<{ position: FootballPosition; is_primary: boolean }>>();
+      const positionsMap = new Map<string, FootballPosition>();
       
       positionsData?.forEach(pos => {
-        if (!positionsMap.has(pos.player_id)) {
-          positionsMap.set(pos.player_id, []);
-        }
-        positionsMap.get(pos.player_id)?.push({
-          position: pos.position as FootballPosition,
-          is_primary: pos.is_primary,
-        });
+        positionsMap.set(pos.player_id, pos.position as FootballPosition);
       });
       
       const entriesWithProfiles = entriesData.map(entry => ({
         ...entry,
         player: {
           ...profilesMap.get(entry.player_id),
-          positions: positionsMap.get(entry.player_id) || [],
+          position: positionsMap.get(entry.player_id),
         },
       }));
 
@@ -328,16 +320,14 @@ const Performance = () => {
     // Position filter
     let matchesPosition = true;
     if (filterPosition !== "all") {
-      const primaryPos = entry.player?.positions?.find(p => p.is_primary);
-      matchesPosition = primaryPos?.position === filterPosition;
+      matchesPosition = entry.player?.position === filterPosition;
     }
     
     // Unit filter (offense/defense)
     let matchesUnit = true;
     if (filterUnit !== "all") {
-      const primaryPos = entry.player?.positions?.find(p => p.is_primary);
-      if (primaryPos) {
-        const unit = getPositionUnit(primaryPos.position);
+      if (entry.player?.position) {
+        const unit = getPositionUnit(entry.player.position);
         matchesUnit = unit === filterUnit;
       } else {
         matchesUnit = false;
@@ -518,6 +508,8 @@ const Performance = () => {
         )}
         </div>
       </div>
+
+      <PlayerPerformanceChart currentUserId={currentUserId} userRole={userRole} />
 
       <PerformanceRadarChart currentUserId={currentUserId} userRole={userRole} />
 

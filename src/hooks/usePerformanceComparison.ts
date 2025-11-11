@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeMetrics, createEmptyMetricSet, getAllMetricTypes, type MetricData, type NormalizedMetric } from '@/lib/performanceUtils';
 
-export type ComparisonMode = 'players' | 'average' | 'best' | 'position' | 'offense' | 'defense' | 'historical';
+export type ComparisonMode = 'best' | 'position' | 'offense' | 'defense';
 
 export interface ComparisonData {
   [key: string]: NormalizedMetric[];
@@ -10,18 +10,14 @@ export interface ComparisonData {
 
 interface UsePerformanceComparisonProps {
   mode: ComparisonMode;
-  selectedPlayerIds: string[];
   selectedPosition?: string;
-  historicalPeriods: number[]; // in months
   currentUserId: string;
   userRole: string;
 }
 
 export function usePerformanceComparison({
   mode,
-  selectedPlayerIds,
   selectedPosition,
-  historicalPeriods,
   currentUserId,
   userRole
 }: UsePerformanceComparisonProps) {
@@ -31,7 +27,7 @@ export function usePerformanceComparison({
 
   useEffect(() => {
     fetchComparisonData();
-  }, [mode, selectedPlayerIds, selectedPosition, historicalPeriods, currentUserId]);
+  }, [mode, selectedPosition, currentUserId]);
 
   async function fetchComparisonData() {
     setIsLoading(true);
@@ -59,65 +55,26 @@ export function usePerformanceComparison({
 
       // Add comparison data based on mode
       switch (mode) {
-        case 'players':
-          if (selectedPlayerIds.length > 0) {
-            for (const playerId of selectedPlayerIds) {
-              const playerData = await fetchLatestPlayerMetrics(playerId);
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('first_name, last_name')
-                .eq('id', playerId)
-                .single();
-              
-              const playerName = profile 
-                ? `${profile.first_name} ${profile.last_name}`
-                : 'Unknown';
-              
-              result[playerName] = normalizeMetrics(playerData, allData as MetricData[]);
-            }
-          }
-          break;
-
-        case 'average':
-          const avgData = await fetchAverageMetrics();
-          result['Average'] = normalizeMetrics(avgData, allData as MetricData[]);
-          break;
-
         case 'best':
           const bestData = await fetchBestMetrics();
-          result['Best'] = normalizeMetrics(bestData, allData as MetricData[]);
+          result['Best Overall'] = normalizeMetrics(bestData, allData as MetricData[]);
           break;
 
         case 'position':
           if (selectedPosition) {
-            const positionData = await fetchPositionAverageMetrics(selectedPosition);
-            result[`${selectedPosition} Average`] = normalizeMetrics(positionData, allData as MetricData[]);
+            const positionBestData = await fetchBestPositionMetrics(selectedPosition);
+            result[`Best ${selectedPosition}`] = normalizeMetrics(positionBestData, allData as MetricData[]);
           }
           break;
 
         case 'offense':
-          const offenseData = await fetchUnitAverageMetrics('offense');
-          result['Offense Average'] = normalizeMetrics(offenseData, allData as MetricData[]);
+          const offenseBestData = await fetchBestUnitMetrics('offense');
+          result['Best Offense'] = normalizeMetrics(offenseBestData, allData as MetricData[]);
           break;
 
         case 'defense':
-          const defenseData = await fetchUnitAverageMetrics('defense');
-          result['Defense Average'] = normalizeMetrics(defenseData, allData as MetricData[]);
-          break;
-
-        case 'historical':
-          if (userRole === 'player' && historicalPeriods.length > 0) {
-            for (const months of historicalPeriods) {
-              const historicalData = await fetchHistoricalMetrics(currentUserId, months);
-              const label = months === 1 ? '1 month ago' : 
-                           months === 3 ? '3 months ago' :
-                           months === 6 ? '6 months ago' :
-                           months === 12 ? '1 year ago' :
-                           months === 24 ? '2 years ago' :
-                           '3 years ago';
-              result[label] = normalizeMetrics(historicalData, allData as MetricData[]);
-            }
-          }
+          const defenseBestData = await fetchBestUnitMetrics('defense');
+          result['Best Defense'] = normalizeMetrics(defenseBestData, allData as MetricData[]);
           break;
       }
 
@@ -266,13 +223,12 @@ export function usePerformanceComparison({
     return result;
   }
 
-  async function fetchPositionAverageMetrics(position: string): Promise<MetricData[]> {
+  async function fetchBestPositionMetrics(position: string): Promise<MetricData[]> {
     // Get all players with this position
     const { data: positionPlayers } = await supabase
       .from('player_positions')
       .select('player_id')
-      .eq('position', position as any)
-      .eq('is_primary', true);
+      .eq('position', position as any);
 
     if (!positionPlayers || positionPlayers.length === 0) {
       return createEmptyMetricSet().map(m => ({ 
@@ -283,36 +239,32 @@ export function usePerformanceComparison({
 
     const playerIds = [...new Set(positionPlayers.map(p => p.player_id))];
     
-    // Calculate average for each metric
+    // Get best for each metric from this position
     const metrics = getAllMetricTypes();
+    const lowerIsBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'];
     const result: MetricData[] = [];
 
     for (const metric of metrics) {
-      const { data: entries } = await supabase
+      const isLowerBetter = lowerIsBetter.includes(metric);
+      
+      const { data } = await supabase
         .from('performance_entries')
-        .select('player_id, value')
+        .select('value')
         .in('player_id', playerIds)
         .eq('metric_type', metric)
-        .order('entry_date', { ascending: false });
+        .order('value', { ascending: isLowerBetter })
+        .limit(1)
+        .maybeSingle();
 
-      if (entries && entries.length > 0) {
-        const playerLatest = new Map<string, number>();
-        entries.forEach(entry => {
-          if (!playerLatest.has(entry.player_id)) {
-            playerLatest.set(entry.player_id, entry.value);
-          }
-        });
-
-        const values = Array.from(playerLatest.values());
-        const average = values.reduce((sum, val) => sum + val, 0) / values.length;
-        result.push({ metric_type: metric, value: average });
+      if (data) {
+        result.push({ metric_type: metric, value: data.value });
       }
     }
 
     return result;
   }
 
-  async function fetchUnitAverageMetrics(unit: 'offense' | 'defense'): Promise<MetricData[]> {
+  async function fetchBestUnitMetrics(unit: 'offense' | 'defense'): Promise<MetricData[]> {
     // Define which positions belong to each unit
     const offensePositions = ['QB', 'WR', 'C'];
     const defensePositions = ['DB', 'B'];
@@ -322,8 +274,7 @@ export function usePerformanceComparison({
     const { data: unitPlayers } = await supabase
       .from('player_positions')
       .select('player_id')
-      .in('position', positions as any)
-      .eq('is_primary', true);
+      .in('position', positions as any);
 
     if (!unitPlayers || unitPlayers.length === 0) {
       return createEmptyMetricSet().map(m => ({ 
@@ -334,61 +285,25 @@ export function usePerformanceComparison({
 
     const playerIds = [...new Set(unitPlayers.map(p => p.player_id))];
     
-    // Calculate average for each metric
+    // Get best for each metric from this unit
     const metrics = getAllMetricTypes();
+    const lowerIsBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'];
     const result: MetricData[] = [];
 
     for (const metric of metrics) {
-      const { data: entries } = await supabase
-        .from('performance_entries')
-        .select('player_id, value')
-        .in('player_id', playerIds)
-        .eq('metric_type', metric)
-        .order('entry_date', { ascending: false });
-
-      if (entries && entries.length > 0) {
-        const playerLatest = new Map<string, number>();
-        entries.forEach(entry => {
-          if (!playerLatest.has(entry.player_id)) {
-            playerLatest.set(entry.player_id, entry.value);
-          }
-        });
-
-        const values = Array.from(playerLatest.values());
-        const average = values.reduce((sum, val) => sum + val, 0) / values.length;
-        result.push({ metric_type: metric, value: average });
-      }
-    }
-
-    return result;
-  }
-
-  async function fetchHistoricalMetrics(playerId: string, monthsAgo: number): Promise<MetricData[]> {
-    const targetDate = new Date();
-    targetDate.setMonth(targetDate.getMonth() - monthsAgo);
-    
-    const startDate = new Date(targetDate);
-    startDate.setDate(startDate.getDate() - 7);
-    const endDate = new Date(targetDate);
-    endDate.setDate(endDate.getDate() + 7);
-
-    const metrics = getAllMetricTypes();
-    const result: MetricData[] = [];
-
-    for (const metric of metrics) {
+      const isLowerBetter = lowerIsBetter.includes(metric);
+      
       const { data } = await supabase
         .from('performance_entries')
-        .select('metric_type, value')
-        .eq('player_id', playerId)
+        .select('value')
+        .in('player_id', playerIds)
         .eq('metric_type', metric)
-        .gte('entry_date', startDate.toISOString().split('T')[0])
-        .lte('entry_date', endDate.toISOString().split('T')[0])
-        .order('entry_date', { ascending: false })
+        .order('value', { ascending: isLowerBetter })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (data) {
-        result.push(data as MetricData);
+        result.push({ metric_type: metric, value: data.value });
       }
     }
 

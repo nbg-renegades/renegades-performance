@@ -1,20 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { usePerformanceComparison, type ComparisonMode } from "@/hooks/usePerformanceComparison";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
-
-interface Player {
-  id: string;
-  first_name: string;
-  last_name: string;
-}
+import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition, getPositionUnit } from "@/lib/positionUtils";
 
 interface PerformanceRadarChartProps {
   currentUserId: string;
@@ -22,24 +16,11 @@ interface PerformanceRadarChartProps {
 }
 
 const PLAYER_COLOR = 'hsl(var(--primary))'; // Gold color for current player
-const COMPARISON_COLOR = 'hsl(var(--muted-foreground))'; // Gray for single comparisons
-
-const MULTI_COLORS = [
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-  'hsl(var(--chart-1))',
-];
+const COMPARISON_COLOR = 'hsl(var(--muted-foreground))'; // Gray for comparisons
 
 function getLineColor(key: string, mode: ComparisonMode, index: number): string {
   // Current player is always gold
   if (key === 'You') return PLAYER_COLOR;
-  
-  // Multi-player modes use different colors
-  if (mode === 'players' || mode === 'historical') {
-    return MULTI_COLORS[(index - 1) % MULTI_COLORS.length];
-  }
   
   // Single comparison modes use gray
   return COMPARISON_COLOR;
@@ -49,43 +30,36 @@ function getStrokeWidth(key: string): number {
   return key === 'You' ? 3 : 2;
 }
 
-const HISTORICAL_OPTIONS = [
-  { value: 1, label: '1 month ago' },
-  { value: 3, label: '3 months ago' },
-  { value: 6, label: '6 months ago' },
-  { value: 12, label: '1 year ago' },
-  { value: 24, label: '2 years ago' },
-  { value: 36, label: '3 years ago' },
-];
 
 export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRadarChartProps) {
-  const [mode, setMode] = useState<ComparisonMode>('average');
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [mode, setMode] = useState<ComparisonMode>('best');
   const [selectedPosition, setSelectedPosition] = useState<string>('QB');
-  const [historicalPeriods, setHistoricalPeriods] = useState<number[]>([1, 6, 12]);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [playerUnit, setPlayerUnit] = useState<'offense' | 'defense' | null>(null);
 
   const { data: comparisonData, isLoading } = usePerformanceComparison({
     mode,
-    selectedPlayerIds,
     selectedPosition,
-    historicalPeriods,
     currentUserId,
     userRole
   });
 
   useEffect(() => {
-    fetchPlayers();
-  }, []);
+    if (userRole === 'player') {
+      fetchPlayerUnit();
+    }
+  }, [userRole, currentUserId]);
 
-  async function fetchPlayers() {
+  async function fetchPlayerUnit() {
     const { data } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name')
-      .order('first_name');
+      .from('player_positions')
+      .select('position')
+      .eq('player_id', currentUserId)
+      .maybeSingle();
     
     if (data) {
-      setPlayers(data as Player[]);
+      const position = data.position as FootballPosition;
+      const unit = getPositionUnit(position);
+      setPlayerUnit(unit);
     }
   }
 
@@ -102,21 +76,6 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
 
   const dataKeys = Object.keys(comparisonData);
 
-  function togglePlayer(playerId: string) {
-    setSelectedPlayerIds(prev => 
-      prev.includes(playerId) 
-        ? prev.filter(id => id !== playerId)
-        : [...prev, playerId]
-    );
-  }
-
-  function toggleHistoricalPeriod(months: number) {
-    setHistoricalPeriods(prev =>
-      prev.includes(months)
-        ? prev.filter(m => m !== months)
-        : [...prev, months]
-    );
-  }
 
   return (
     <Card>
@@ -128,61 +87,16 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       </CardHeader>
       <CardContent>
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="average">Average</TabsTrigger>
-            <TabsTrigger value="best">Best</TabsTrigger>
-            <TabsTrigger value="players">Players</TabsTrigger>
-            <TabsTrigger value="position">Position</TabsTrigger>
-            <TabsTrigger value="offense">Offense</TabsTrigger>
-            <TabsTrigger value="defense">Defense</TabsTrigger>
-            {userRole === 'player' && <TabsTrigger value="historical">Historical</TabsTrigger>}
+          <TabsList className={`grid w-full ${userRole === 'player' ? 'grid-cols-3' : 'grid-cols-4'}`}>
+            <TabsTrigger value="best">Best Overall</TabsTrigger>
+            <TabsTrigger value="position">My Position</TabsTrigger>
+            {(userRole === 'coach' || userRole === 'admin' || playerUnit === 'offense') && (
+              <TabsTrigger value="offense">Offense</TabsTrigger>
+            )}
+            {(userRole === 'coach' || userRole === 'admin' || playerUnit === 'defense') && (
+              <TabsTrigger value="defense">Defense</TabsTrigger>
+            )}
           </TabsList>
-
-          <TabsContent value="players" className="space-y-4">
-            <div className="space-y-2">
-              <Label>Select Players to Compare</Label>
-              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border rounded-md">
-                {players.map(player => (
-                  <div key={player.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={player.id}
-                      checked={selectedPlayerIds.includes(player.id)}
-                      onCheckedChange={() => togglePlayer(player.id)}
-                    />
-                    <label
-                      htmlFor={player.id}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {player.first_name} {player.last_name}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="historical" className="space-y-4">
-            <div className="space-y-2">
-              <Label>Select Time Periods</Label>
-              <div className="grid grid-cols-2 gap-2 p-2 border rounded-md">
-                {HISTORICAL_OPTIONS.map(option => (
-                  <div key={option.value} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`period-${option.value}`}
-                      checked={historicalPeriods.includes(option.value)}
-                      onCheckedChange={() => toggleHistoricalPeriod(option.value)}
-                    />
-                    <label
-                      htmlFor={`period-${option.value}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {option.label}
-                    </label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
 
           <TabsContent value="position" className="space-y-4">
             <div className="space-y-2">
@@ -202,7 +116,6 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
             </div>
           </TabsContent>
 
-          <TabsContent value="average" />
           <TabsContent value="best" />
           <TabsContent value="offense" />
           <TabsContent value="defense" />
@@ -252,11 +165,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
             </ResponsiveContainer>
           ) : (
             <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-              {mode === 'players' && selectedPlayerIds.length === 0 
-                ? 'Select players to compare'
-                : mode === 'historical' && historicalPeriods.length === 0
-                ? 'Select time periods to compare'
-                : 'No data available for comparison'}
+              No data available for comparison
             </div>
           )}
         </div>

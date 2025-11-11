@@ -20,11 +20,7 @@ interface UserProfile {
   first_name: string;
   last_name: string;
   roles?: Array<{ role: string }>;
-  positions?: Array<{ 
-    id: string;
-    position: string;
-    is_primary: boolean;
-  }>;
+  position?: string;
 }
 
 const Users = () => {
@@ -36,7 +32,6 @@ const Users = () => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [primaryPosition, setPrimaryPosition] = useState<FootballPosition>('unassigned');
-  const [secondaryPosition, setSecondaryPosition] = useState<FootballPosition>('unassigned');
 
   useEffect(() => {
     fetchUsers();
@@ -67,25 +62,18 @@ const Users = () => {
       // Fetch positions separately
       const { data: positionsData } = await supabase
         .from("player_positions")
-        .select("id, player_id, position, is_primary")
+        .select("player_id, position")
         .in("player_id", userIds);
 
-      const positionsMap = new Map<string, Array<{ id: string; position: string; is_primary: boolean }>>();
+      const positionsMap = new Map<string, string>();
       positionsData?.forEach(p => {
-        if (!positionsMap.has(p.player_id)) {
-          positionsMap.set(p.player_id, []);
-        }
-        positionsMap.get(p.player_id)?.push({ 
-          id: p.id,
-          position: p.position,
-          is_primary: p.is_primary 
-        });
+        positionsMap.set(p.player_id, p.position);
       });
 
       const usersWithRoles = data.map(user => ({
         ...user,
         roles: rolesMap.get(user.id) || [],
-        positions: positionsMap.get(user.id) || [],
+        position: positionsMap.get(user.id),
       }));
 
       setUsers(usersWithRoles);
@@ -191,11 +179,8 @@ const Users = () => {
     setEditingUser(user);
     setSelectedRoles(user.roles?.map(r => r.role) || []);
     
-    // Load positions - reset to unassigned if no positions exist
-    const primary = user.positions?.find(p => p.is_primary);
-    const secondary = user.positions?.find(p => !p.is_primary);
-    setPrimaryPosition((primary?.position as FootballPosition) || 'unassigned');
-    setSecondaryPosition((secondary?.position as FootballPosition) || 'unassigned');
+    // Load position - reset to unassigned if no position exists
+    setPrimaryPosition((user.position as FootballPosition) || 'unassigned');
     
     setIsEditDialogOpen(true);
   };
@@ -306,34 +291,19 @@ const Users = () => {
           throw deleteError;
         }
 
-        // Build positions to insert
-        const positionsToInsert = [];
+        // Build position to insert
         
         // Only insert if not 'unassigned'
         if (primaryPosition && primaryPosition !== 'unassigned') {
-          positionsToInsert.push({
-            player_id: editingUser.id,
-            position: primaryPosition as any,
-            is_primary: true,
-          });
-        }
-        
-        if (secondaryPosition && secondaryPosition !== 'unassigned') {
-          positionsToInsert.push({
-            player_id: editingUser.id,
-            position: secondaryPosition as any,
-            is_primary: false,
-          });
-        }
-
-        // Insert new positions if any
-        if (positionsToInsert.length > 0) {
           const { error: posError } = await supabase
             .from("player_positions")
-            .insert(positionsToInsert);
+            .insert([{
+              player_id: editingUser.id,
+              position: primaryPosition as any,
+            }]);
 
           if (posError) {
-            console.error("Error inserting positions:", posError);
+            console.error("Error inserting position:", posError);
             throw posError;
           }
         }
@@ -354,7 +324,6 @@ const Users = () => {
       setEditingUser(null);
       setSelectedRoles([]);
       setPrimaryPosition('unassigned');
-      setSecondaryPosition('unassigned');
       fetchUsers();
     } catch (error: any) {
       toast({
@@ -522,13 +491,11 @@ const Users = () => {
                           </Badge>
                         ))}
                       </div>
-                      {user.roles?.some(r => r.role === 'player') && user.positions && user.positions.length > 0 && (
+                      {user.roles?.some(r => r.role === 'player') && user.position && (
                         <div className="flex gap-1 items-center text-xs text-muted-foreground">
                           <Target className="h-3 w-3" />
                           <span>
-                            {user.positions.map((pos, idx) => 
-                              `${pos.position} ${pos.is_primary ? '(Primary)' : '(Secondary)'}`
-                            ).join(' • ')}
+                            {POSITION_LABELS[user.position as FootballPosition]}
                           </span>
                         </div>
                       )}
@@ -622,38 +589,21 @@ const Users = () => {
             </div>
             {selectedRoles.includes('player') && (
               <div className="space-y-3 border-t pt-3">
-                <Label className="text-base">Player Positions</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="primary-position">Primary Position</Label>
-                    <Select value={primaryPosition} onValueChange={(v) => setPrimaryPosition(v as FootballPosition)}>
-                      <SelectTrigger id="primary-position">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover z-50">
-                        {POSITION_OPTIONS.map(pos => (
-                          <SelectItem key={pos} value={pos}>
-                            {POSITION_LABELS[pos]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="secondary-position">Secondary Position</Label>
-                    <Select value={secondaryPosition} onValueChange={(v) => setSecondaryPosition(v as FootballPosition)}>
-                      <SelectTrigger id="secondary-position">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover z-50">
-                        {POSITION_OPTIONS.map(pos => (
-                          <SelectItem key={pos} value={pos}>
-                            {POSITION_LABELS[pos]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <Label className="text-base">Player Position</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="primary-position">Position</Label>
+                  <Select value={primaryPosition} onValueChange={(v) => setPrimaryPosition(v as FootballPosition)}>
+                    <SelectTrigger id="primary-position">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {POSITION_OPTIONS.map(pos => (
+                        <SelectItem key={pos} value={pos}>
+                          {POSITION_LABELS[pos]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}
