@@ -46,29 +46,30 @@ const Users = () => {
       .order("created_at", { ascending: false });
 
     if (data) {
-      // Fetch roles separately
       const userIds = data.map(u => u.id);
-      const { data: rolesData } = await supabase
-        .from("user_roles")
-        .select("user_id, role")
-        .in("user_id", userIds);
+      
+      // Batch fetch roles and positions in parallel
+      const [rolesResult, positionsResult] = await Promise.all([
+        supabase
+          .from("user_roles")
+          .select("user_id, role")
+          .in("user_id", userIds),
+        supabase
+          .from("player_positions")
+          .select("player_id, position")
+          .in("player_id", userIds)
+      ]);
 
       const rolesMap = new Map<string, Array<{ role: string }>>();
-      rolesData?.forEach(r => {
+      rolesResult.data?.forEach(r => {
         if (!rolesMap.has(r.user_id)) {
           rolesMap.set(r.user_id, []);
         }
         rolesMap.get(r.user_id)?.push({ role: r.role });
       });
 
-      // Fetch positions separately
-      const { data: positionsData } = await supabase
-        .from("player_positions")
-        .select("player_id, position")
-        .in("player_id", userIds);
-
       const positionsMap = new Map<string, string>();
-      positionsData?.forEach(p => {
+      positionsResult.data?.forEach(p => {
         positionsMap.set(p.player_id, p.position);
       });
 

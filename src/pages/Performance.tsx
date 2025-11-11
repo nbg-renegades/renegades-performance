@@ -52,7 +52,18 @@ const Performance = () => {
     fetchData();
   }, []);
 
+  // Debounced refresh to prevent rapid successive calls
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const FETCH_COOLDOWN = 1000; // 1 second cooldown
+
   const fetchData = async () => {
+    // Rate limiting: Check cooldown
+    const now = Date.now();
+    if (now - lastFetchTime < FETCH_COOLDOWN) {
+      return; // Skip if called too soon
+    }
+    setLastFetchTime(now);
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -105,21 +116,23 @@ const Performance = () => {
     // Fetch player names and positions separately
     if (entriesData) {
       const playerIds = [...new Set(entriesData.map(e => e.player_id))];
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("id, first_name, last_name")
-        .in("id", playerIds);
+      
+      // Batch fetch profiles and positions together
+      const [profilesResult, positionsResult] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, first_name, last_name")
+          .in("id", playerIds),
+        supabase
+          .from("player_positions")
+          .select("player_id, position")
+          .in("player_id", playerIds)
+      ]);
 
-      // Fetch positions for each player
-      const { data: positionsData } = await supabase
-        .from("player_positions")
-        .select("player_id, position")
-        .in("player_id", playerIds);
-
-      const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
+      const profilesMap = new Map(profilesResult.data?.map(p => [p.id, p]));
       const positionsMap = new Map<string, FootballPosition>();
       
-      positionsData?.forEach(pos => {
+      positionsResult.data?.forEach(pos => {
         positionsMap.set(pos.player_id, pos.position as FootballPosition);
       });
       

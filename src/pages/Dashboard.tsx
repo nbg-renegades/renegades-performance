@@ -92,39 +92,43 @@ const Dashboard = () => {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
+    // Batch query: Fetch all entries at once instead of looping
+    const { data: allTimeData } = await supabase
+      .from('performance_entries')
+      .select('metric_type, value')
+      .in('metric_type', allMetrics);
+
+    const { data: sixMonthData } = await supabase
+      .from('performance_entries')
+      .select('metric_type, value')
+      .in('metric_type', allMetrics)
+      .gte('entry_date', sixMonthsAgo.toISOString().split('T')[0]);
+
+    // Process results client-side to find best values per metric
     const allTimeResults: TeamBestMetric[] = [];
     const sixMonthResults: TeamBestMetric[] = [];
 
-    for (const metric of allMetrics) {
+    allMetrics.forEach(metric => {
       const isLowerBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'].includes(metric);
-
+      
       // All-time best
-      const { data: allTimeData } = await supabase
-        .from('performance_entries')
-        .select('value')
-        .eq('metric_type', metric)
-        .order('value', { ascending: isLowerBetter })
-        .limit(1)
-        .maybeSingle();
-
-      if (allTimeData) {
-        allTimeResults.push({ metric, value: allTimeData.value });
+      const metricEntries = allTimeData?.filter(e => e.metric_type === metric) || [];
+      if (metricEntries.length > 0) {
+        const bestValue = isLowerBetter
+          ? Math.min(...metricEntries.map(e => e.value))
+          : Math.max(...metricEntries.map(e => e.value));
+        allTimeResults.push({ metric, value: bestValue });
       }
 
       // Last 6 months best
-      const { data: sixMonthData } = await supabase
-        .from('performance_entries')
-        .select('value')
-        .eq('metric_type', metric)
-        .gte('entry_date', sixMonthsAgo.toISOString().split('T')[0])
-        .order('value', { ascending: isLowerBetter })
-        .limit(1)
-        .maybeSingle();
-
-      if (sixMonthData) {
-        sixMonthResults.push({ metric, value: sixMonthData.value });
+      const recentMetricEntries = sixMonthData?.filter(e => e.metric_type === metric) || [];
+      if (recentMetricEntries.length > 0) {
+        const bestValue = isLowerBetter
+          ? Math.min(...recentMetricEntries.map(e => e.value))
+          : Math.max(...recentMetricEntries.map(e => e.value));
+        sixMonthResults.push({ metric, value: bestValue });
       }
-    }
+    });
 
     setTeamBestAllTime(allTimeResults);
     setTeamBestSixMonths(sixMonthResults);
@@ -135,39 +139,33 @@ const Dashboard = () => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
+    // Batch query: Fetch all player entries at once
+    const { data: allPlayerEntries } = await supabase
+      .from('performance_entries')
+      .select('entry_date, value, metric_type')
+      .eq('player_id', stats.userId)
+      .in('metric_type', allMetrics)
+      .order('entry_date', { ascending: false });
+
     const statuses: MetricStatus[] = [];
 
-    for (const metric of allMetrics) {
-      // Get latest entry for this metric
-      const { data: latestEntry } = await supabase
-        .from('performance_entries')
-        .select('entry_date, value')
-        .eq('player_id', stats.userId)
-        .eq('metric_type', metric)
-        .order('entry_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Get best value for this metric
-      const { data: allEntries } = await supabase
-        .from('performance_entries')
-        .select('value, metric_type')
-        .eq('player_id', stats.userId)
-        .eq('metric_type', metric);
-
-      let bestValue: number | undefined;
-      if (allEntries && allEntries.length > 0) {
-        const isLowerBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'].includes(metric);
-        bestValue = isLowerBetter
-          ? Math.min(...allEntries.map(e => e.value))
-          : Math.max(...allEntries.map(e => e.value));
-      }
-
-      if (!latestEntry) {
+    allMetrics.forEach(metric => {
+      const metricEntries = allPlayerEntries?.filter(e => e.metric_type === metric) || [];
+      
+      if (metricEntries.length === 0) {
         statuses.push({ metric, status: 'missing' });
       } else {
+        // Latest entry is first due to order by
+        const latestEntry = metricEntries[0];
         const lastEntryDate = new Date(latestEntry.entry_date);
         const isOutdated = lastEntryDate < threeMonthsAgo;
+        
+        // Calculate best value
+        const isLowerBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'].includes(metric);
+        const bestValue = isLowerBetter
+          ? Math.min(...metricEntries.map(e => e.value))
+          : Math.max(...metricEntries.map(e => e.value));
+
         statuses.push({
           metric,
           status: isOutdated ? 'outdated' : 'current',
@@ -175,7 +173,7 @@ const Dashboard = () => {
           bestValue,
         });
       }
-    }
+    });
 
     setMetricStatuses(statuses);
   };
