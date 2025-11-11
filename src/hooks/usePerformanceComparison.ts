@@ -23,18 +23,44 @@ export function usePerformanceComparison({
 }: UsePerformanceComparisonProps) {
   const [data, setData] = useState<ComparisonData>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [allMetricsData, setAllMetricsData] = useState<MetricData[]>([]);
 
   useEffect(() => {
     fetchComparisonData();
   }, [mode, selectedPosition, currentUserId]);
 
+  // Set up realtime subscription for performance entries
+  useEffect(() => {
+    const channel = supabase
+      .channel('performance-entries-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'performance_entries'
+        },
+        () => {
+          // Refetch data when any performance entry changes
+          fetchComparisonData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [mode, selectedPosition, currentUserId]);
+
   async function fetchComparisonData() {
     setIsLoading(true);
+    setError(null);
     try {
       // Guard against empty player IDs
       if (!currentUserId || currentUserId.trim() === '') {
         console.warn('No valid player ID provided');
+        setError('No player ID provided');
         setIsLoading(false);
         return;
       }
@@ -55,6 +81,7 @@ export function usePerformanceComparison({
 
       if (benchmarkError) {
         console.error('Error fetching benchmarks:', benchmarkError);
+        setError('Failed to load benchmark data. Please try again.');
         setIsLoading(false);
         return;
       }
@@ -62,6 +89,7 @@ export function usePerformanceComparison({
       const { benchmarks, allData } = benchmarkResponse;
       
       if (!allData) {
+        setError('No performance data available');
         setIsLoading(false);
         return;
       }
@@ -96,10 +124,11 @@ export function usePerformanceComparison({
       }
 
       setData(result);
+      setError(null);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error fetching comparison data:', error);
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('Error fetching comparison data:', errorMessage);
+      setError('Failed to load performance data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -128,5 +157,5 @@ export function usePerformanceComparison({
   }
 
 
-  return { data, isLoading, allMetricsData };
+  return { data, isLoading, error, allMetricsData, refetch: fetchComparisonData };
 }

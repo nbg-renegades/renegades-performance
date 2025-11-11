@@ -39,7 +39,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
   const [isCoach, setIsCoach] = useState(false);
 
-  const { data: comparisonData, isLoading } = usePerformanceComparison({
+  const { data: comparisonData, isLoading, error, refetch } = usePerformanceComparison({
     mode,
     selectedPosition,
     currentUserId: selectedPlayerId || currentUserId,
@@ -211,7 +211,20 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
 
         <div className="mt-6">
           {isLoading ? (
-            <Skeleton className="h-[400px] w-full" />
+            <div className="h-[400px] w-full flex flex-col items-center justify-center gap-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              <p className="text-sm text-muted-foreground">Loading benchmark data...</p>
+            </div>
+          ) : error ? (
+            <div className="h-[400px] w-full flex flex-col items-center justify-center gap-4">
+              <p className="text-sm text-destructive">{error}</p>
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
           ) : chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={400}>
               <RadarChart data={chartData}>
