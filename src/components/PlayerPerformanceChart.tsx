@@ -109,26 +109,16 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
         .order('entry_date', { ascending: true });
 
       const dbData = data || [];
-      const valueByDate = new Map(dbData.map((entry: any) => [entry.entry_date, entry.value]));
-
-      const dailyData: any[] = [];
-      const cursor = new Date(startDate);
-      cursor.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(0, 0, 0, 0);
-
-      while (cursor <= end) {
-        const iso = cursor.toISOString().split('T')[0];
-        dailyData.push({
-          ts: cursor.getTime(),
-          value: valueByDate.get(iso) ?? null,
-          isoDate: iso,
-          dateLabel: cursor.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
-        });
-        cursor.setDate(cursor.getDate() + 1);
-      }
       
-      setChartData(dailyData);
+      // Only include dates where we have actual data, but maintain time scale
+      const formattedData = dbData.map((entry: any) => ({
+        ts: new Date(entry.entry_date).getTime(),
+        value: entry.value,
+        isoDate: entry.entry_date,
+        dateLabel: new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
+      }));
+      
+      setChartData(formattedData);
     } catch (error) {
       console.error('Error fetching chart data:', error);
     } finally {
@@ -257,11 +247,11 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                   type="monotone" 
                   dataKey="value" 
                   stroke="hsl(var(--primary))" 
-                  strokeWidth={3}
-                  dot={{ fill: 'hsl(var(--primary))', r: isMobile ? 3 : 4 }}
-                  activeDot={{ r: isMobile ? 5 : 6 }}
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))', r: isMobile ? 4 : 5, strokeWidth: 2 }}
+                  activeDot={{ r: isMobile ? 6 : 8, strokeWidth: 0 }}
                   name={METRICS[selectedMetric].label}
-                  connectNulls={false}
+                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>

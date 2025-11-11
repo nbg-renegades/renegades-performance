@@ -63,7 +63,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
     }
   }
 
-  // Transform data for recharts
+  // Transform data for recharts - ensure Reference is drawn first (outer), then Player (inner)
   const chartData = Object.keys(comparisonData).length > 0
     ? comparisonData[Object.keys(comparisonData)[0]].map((metric, index) => {
         const dataPoint: any = { metric: metric.metric };
@@ -74,7 +74,11 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       })
     : [];
 
+  // Separate player data from reference data - draw reference first (outer layer)
   const dataKeys = Object.keys(comparisonData);
+  const referenceKeys = dataKeys.filter(key => key !== 'You');
+  const playerKeys = dataKeys.filter(key => key === 'You');
+  const orderedKeys = [...referenceKeys, ...playerKeys]; // Reference first, player second
 
 
   return (
@@ -137,14 +141,14 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                   domain={[0, 100]}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                 />
-                {dataKeys.map((key, index) => (
+                {orderedKeys.map((key, index) => (
                   <Radar
                     key={key}
                     name={key}
                     dataKey={key}
                     stroke={getLineColor(key, mode, index)}
                     fill={getLineColor(key, mode, index)}
-                    fillOpacity={key === 'You' ? 0.3 : 0.1}
+                    fillOpacity={key === 'You' ? 0.4 : 0.15}
                     strokeWidth={getStrokeWidth(key)}
                   />
                 ))}
