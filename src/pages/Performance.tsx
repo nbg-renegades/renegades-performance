@@ -450,10 +450,81 @@ const Performance = () => {
               }
             >
               <form onSubmit={handleAddEntry} className="space-y-4">
-...
-                <Button type="submit" className="w-full" disabled={
-                  isLoading || ((userRole === "coach" || userRole === "admin") && !selectedPlayerId) || !selectedMetric
-                }>
+                {/* Player selector for coaches/admins */}
+                {(userRole === "coach" || userRole === "admin") ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="player_id">Player</Label>
+                    <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                      <SelectTrigger id="player_id" className="bg-background">
+                        <SelectValue placeholder="Select player" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover z-50">
+                        {players.map((p: any) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.first_name} {p.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {/* Hidden input so value is submitted with the form */}
+                    <input type="hidden" name="player_id" value={selectedPlayerId || ""} />
+                  </div>
+                ) : (
+                  // Players submit their own ID
+                  <input type="hidden" name="player_id" value={currentUserId} />
+                )}
+
+                {/* Metric selector */}
+                <div className="space-y-2">
+                  <Label htmlFor="metric_type">Metric</Label>
+                  <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+                    <SelectTrigger id="metric_type" className="bg-background">
+                      <SelectValue placeholder="Select metric" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      {Object.entries(metricDisplayNames).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {/* Hidden input so value is submitted with the form */}
+                  <input type="hidden" name="metric_type" value={selectedMetric || ""} />
+                </div>
+
+                {/* Value */}
+                <div className="space-y-2">
+                  <Label htmlFor="value">Value</Label>
+                  <Input
+                    id="value"
+                    name="value"
+                    type="number"
+                    step={(["40yd_dash", "3cone_drill", "shuffle_run"].includes(selectedMetric) ? 0.01 : 1) as any}
+                    min={0}
+                    required
+                  />
+                </div>
+
+                {/* Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="entry_date">Date</Label>
+                  <Input
+                    id="entry_date"
+                    name="entry_date"
+                    type="date"
+                    defaultValue={new Date().toISOString().split("T")[0]}
+                    required
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={
+                    isLoading || ((userRole === "coach" || userRole === "admin") && !selectedPlayerId) || !selectedMetric
+                  }
+                >
                   {isLoading ? "Adding..." : "Add Entry"}
                 </Button>
               </form>

@@ -376,7 +376,45 @@ const Users = () => {
           }
         >
           <form onSubmit={handleCreateUser} className="space-y-4">
-...
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="first_name">First Name</Label>
+                <Input id="first_name" name="first_name" type="text" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="last_name">Last Name</Label>
+                <Input id="last_name" name="last_name" type="text" required />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" name="password" type="password" minLength={6} required />
+            </div>
+
+            <div className="space-y-3">
+              <Label>Roles</Label>
+              <div className="space-y-2">
+                {["admin", "coach", "player"].map((role) => (
+                  <div key={role} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`role-${role}`}
+                      checked={selectedRoles.includes(role)}
+                      onCheckedChange={() => handleRoleToggle(role)}
+                    />
+                    <Label htmlFor={`role-${role}`} className="capitalize cursor-pointer">
+                      {role}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Creating..." : "Create User"}
             </Button>
