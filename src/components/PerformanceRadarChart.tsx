@@ -44,10 +44,9 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   });
 
   useEffect(() => {
-    if (userRole === 'player') {
-      fetchPlayerUnit();
-    }
-  }, [userRole, currentUserId]);
+    // Always check player unit, regardless of role
+    fetchPlayerUnit();
+  }, [currentUserId]);
 
   async function fetchPlayerUnit() {
     const { data } = await supabase
@@ -91,13 +90,13 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       </CardHeader>
       <CardContent>
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
-          <TabsList className={`grid w-full ${userRole === 'player' ? 'grid-cols-3' : 'grid-cols-4'}`}>
+          <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <TabsTrigger value="best">Best Overall</TabsTrigger>
             <TabsTrigger value="position">My Position</TabsTrigger>
-            {(userRole === 'coach' || userRole === 'admin' || playerUnit === 'offense') && (
+            {(playerUnit === null || playerUnit === 'offense') && (
               <TabsTrigger value="offense">Offense</TabsTrigger>
             )}
-            {(userRole === 'coach' || userRole === 'admin' || playerUnit === 'defense') && (
+            {(playerUnit === null || playerUnit === 'defense') && (
               <TabsTrigger value="defense">Defense</TabsTrigger>
             )}
           </TabsList>
