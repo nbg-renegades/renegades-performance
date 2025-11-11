@@ -261,6 +261,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                   dot={{ fill: 'hsl(var(--primary))', r: isMobile ? 3 : 4 }}
                   activeDot={{ r: isMobile ? 5 : 6 }}
                   name={METRICS[selectedMetric].label}
+                  connectNulls={false}
                 />
               </LineChart>
             </ResponsiveContainer>
