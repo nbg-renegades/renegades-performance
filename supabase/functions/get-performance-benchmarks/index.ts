@@ -1,14 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface BenchmarkRequest {
-  mode: 'best' | 'position' | 'offense' | 'defense';
-  position?: string;
-}
+const requestSchema = z.object({
+  mode: z.enum(['best', 'position', 'offense', 'defense']),
+  position: z.enum(['QB', 'WR', 'C', 'DB', 'B', 'unassigned']).optional(),
+});
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -17,15 +18,48 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Authenticate the user
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+    // Verify the user is authenticated
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     
-    // Use service role client to bypass RLS
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate input parameters
+    const body = await req.json();
+    const validation = requestSchema.safeParse(body);
+    
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid parameters', details: validation.error.issues }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { mode, position } = validation.data;
+    
+    // Use service role client to bypass RLS for aggregation
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { mode, position }: BenchmarkRequest = await req.json();
-
-    console.log('[Benchmarks] Request:', { mode, position });
 
     const allMetrics = [
       'vertical_jump',
@@ -45,11 +79,9 @@ Deno.serve(async (req) => {
       .order('entry_date', { ascending: false });
 
     if (allDataError) {
-      console.error('[Benchmarks] Error fetching all data:', allDataError);
+      console.error('Error fetching performance data:', allDataError.message);
       throw allDataError;
     }
-
-    console.log('[Benchmarks] Fetched all data:', allData?.length, 'entries');
 
     const result: Array<{ metric_type: string; value: number }> = [];
 
@@ -64,12 +96,11 @@ Deno.serve(async (req) => {
         .eq('position', position);
 
       if (posError) {
-        console.error('[Benchmarks] Position error:', posError);
+        console.error('Error fetching position players:', posError.message);
         throw posError;
       }
 
       playerIds = positionPlayers?.map(p => p.player_id) || [];
-      console.log('[Benchmarks] Position players:', playerIds.length);
     } else if (mode === 'offense' || mode === 'defense') {
       // Get players in this unit
       const offensePositions = ['QB', 'WR', 'C'];
@@ -82,12 +113,11 @@ Deno.serve(async (req) => {
         .in('position', positions);
 
       if (unitError) {
-        console.error('[Benchmarks] Unit error:', unitError);
+        console.error('Error fetching unit players:', unitError.message);
         throw unitError;
       }
 
       playerIds = unitPlayers?.map(p => p.player_id) || [];
-      console.log('[Benchmarks] Unit players:', playerIds.length);
     }
     // For 'best' mode, we don't filter by player (include all)
 
@@ -109,7 +139,7 @@ Deno.serve(async (req) => {
       const { data: entries, error: entriesError } = await query;
 
       if (entriesError) {
-        console.error(`[Benchmarks] Error fetching ${metric}:`, entriesError);
+        console.error(`Error fetching metric ${metric}:`, entriesError.message);
         continue;
       }
 
@@ -122,23 +152,15 @@ Deno.serve(async (req) => {
           }
         });
 
-        console.log(`[Benchmarks] ${metric}: ${playerLatest.size} players with latest values`);
-
         // Find the best among latest values
         const values = Array.from(playerLatest.values());
         const bestValue = isLowerBetter 
           ? Math.min(...values)
           : Math.max(...values);
-
-        console.log(`[Benchmarks] ${metric} best: ${bestValue} (lower better: ${isLowerBetter})`);
         
         result.push({ metric_type: metric, value: bestValue });
-      } else {
-        console.log(`[Benchmarks] ${metric}: No entries found`);
       }
     }
-
-    console.log('[Benchmarks] Returning result:', result);
 
     return new Response(
       JSON.stringify({ benchmarks: result, allData }),
@@ -147,7 +169,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('[Benchmarks] Error:', error);
+    console.error('Benchmark calculation error:', error instanceof Error ? error.message : 'Unknown error');
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),

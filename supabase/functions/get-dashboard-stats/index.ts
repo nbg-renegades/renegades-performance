@@ -55,8 +55,6 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    console.log('Fetching dashboard stats for user:', user.id);
-
     // Calculate date 30 days ago
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -104,8 +102,6 @@ Deno.serve(async (req) => {
       teamRecentEntries: teamEntriesResult.count || 0,
       userRecentEntries: userEntriesResult.count || 0,
     };
-
-    console.log('Dashboard stats:', stats);
 
     return new Response(
       JSON.stringify(stats),
