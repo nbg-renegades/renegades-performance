@@ -152,7 +152,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
       <CardHeader>
         <CardTitle>Performance History</CardTitle>
         <CardDescription>
-          Track your progress over time across different metrics
+          Track your progress over time across different metrics. Select a metric and timeframe to view your performance trend.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -205,7 +205,14 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
           {isLoading ? (
             <Skeleton className={`h-[${chartHeight}px] w-full`} />
           ) : (
-            <ResponsiveContainer width="100%" height={chartHeight}>
+            <>
+              {/* Show date range */}
+              <div className="mb-2 text-sm text-muted-foreground text-center">
+                Showing: {startDateAxis.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} — {endDateAxis.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                {chartData.length === 0 && <span className="text-orange-500 ml-2">(No data in this range)</span>}
+                {chartData.length === 1 && <span className="text-blue-500 ml-2">(1 entry - add more to see trend line)</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={chartHeight}>
               <LineChart data={chartData} margin={{ bottom: isMobile ? 20 : 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
@@ -254,7 +261,8 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                   isAnimationActive={false}
                 />
               </LineChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            </>
           )}
         </div>
       </CardContent>

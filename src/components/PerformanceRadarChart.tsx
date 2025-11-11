@@ -85,7 +85,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       <CardHeader>
         <CardTitle>Performance Comparison</CardTitle>
         <CardDescription>
-          Compare athletic performance across different metrics and players
+          Compare your latest performance against reference benchmarks. The outer ring shows the best recorded value for each metric, while your performance is shown in the inner area. All metrics are scaled 0-100 where 100 = best performance.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -162,7 +162,11 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                     borderRadius: '6px',
                     color: 'hsl(var(--popover-foreground))'
                   }}
-                  formatter={(value: any) => `${Math.round(value)}/100`}
+                  formatter={(value: any, name: any, props: any) => {
+                    const rawValue = props.payload[name];
+                    return [`Score: ${Math.round(value)}/100`, name];
+                  }}
+                  labelFormatter={(label: any) => label}
                 />
               </RadarChart>
             </ResponsiveContainer>
@@ -171,6 +175,18 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
               No data available for comparison
             </div>
           )}
+          
+          {/* Explanation of scaling */}
+          <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
+            <h4 className="font-semibold text-foreground">How the 0-100 Scale Works</h4>
+            <ul className="list-disc list-inside text-muted-foreground space-y-1">
+              <li><strong>100 = Best performance</strong> recorded across all players</li>
+              <li><strong>0 = Baseline</strong> (lowest recorded performance)</li>
+              <li><strong>Time metrics</strong> (40yd dash, 3-cone, shuffle run): Faster time = Higher score</li>
+              <li><strong>Distance/Reps</strong> (jumps, pushups): Higher value = Higher score</li>
+              <li><strong>Your score</strong> shows where you stand relative to the best performance</li>
+            </ul>
+          </div>
         </div>
       </CardContent>
     </Card>
