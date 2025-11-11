@@ -192,10 +192,10 @@ const Dashboard = () => {
                      stats.userRoles.includes("player") ? "player" : "";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Welcome back, {stats.userName || "User"}!</h1>
-        <p className="text-muted-foreground">Role: {displayRoles}</p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {stats.userName || "User"}!</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Role: {displayRoles}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

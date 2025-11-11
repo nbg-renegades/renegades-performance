@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, UserPlus, Shield, Pencil, Target } from "lucide-react";
 import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { userProfileSchema } from "@/lib/validation";
 import { z } from "zod";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface UserProfile {
   id: string;
@@ -25,6 +26,7 @@ interface UserProfile {
 
 const Users = () => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -351,104 +353,30 @@ const Users = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">User Management</h1>
-          <p className="text-muted-foreground">Manage team members and their roles</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">User Management</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Manage team members and their roles</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+        <ResponsiveDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          title="Create New User"
+          description="Add a new team member to the system"
+          trigger={
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add User
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>Add a new team member to the system</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">First Name</Label>
-                  <Input
-                    id="first_name"
-                    name="first_name"
-                    type="text"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">Last Name</Label>
-                  <Input
-                    id="last_name"
-                    name="last_name"
-                    type="text"
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                />
-              </div>
-              <div className="space-y-3">
-                <Label>Roles (select at least one)</Label>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="role-admin"
-                      checked={selectedRoles.includes("admin")}
-                      onCheckedChange={() => handleRoleToggle("admin")}
-                    />
-                    <Label htmlFor="role-admin" className="font-normal cursor-pointer">
-                      Admin
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="role-coach"
-                      checked={selectedRoles.includes("coach")}
-                      onCheckedChange={() => handleRoleToggle("coach")}
-                    />
-                    <Label htmlFor="role-coach" className="font-normal cursor-pointer">
-                      Coach
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="role-player"
-                      checked={selectedRoles.includes("player")}
-                      onCheckedChange={() => handleRoleToggle("player")}
-                    />
-                    <Label htmlFor="role-player" className="font-normal cursor-pointer">
-                      Player
-                    </Label>
-                  </div>
-                </div>
-              </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Creating..." : "Create User"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+          }
+        >
+          <form onSubmit={handleCreateUser} className="space-y-4">
+...
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Creating..." : "Create User"}
+            </Button>
+          </form>
+        </ResponsiveDialog>
       </div>
 
       <Card className="border-border/50 shadow-card">
@@ -469,24 +397,24 @@ const Users = () => {
               users.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-3"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4">
                     <div className="p-2 rounded-lg bg-primary/10">
-                      <UserPlus className="h-5 w-5 text-primary" />
+                      <UserPlus className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                     </div>
-                    <div>
-                      <p className="font-semibold">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm sm:text-base truncate">
                         {user.first_name} {user.last_name}
                       </p>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
                     <div className="flex flex-col gap-2">
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         {user.roles?.map((ur, idx) => (
-                          <Badge key={idx} variant={getRoleBadgeVariant(ur.role)} className="capitalize">
+                          <Badge key={idx} variant={getRoleBadgeVariant(ur.role)} className="capitalize text-xs">
                             {ur.role}
                           </Badge>
                         ))}
@@ -504,6 +432,7 @@ const Users = () => {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleEditUser(user)}
+                      className="shrink-0"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -515,104 +444,19 @@ const Users = () => {
         </CardContent>
       </Card>
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update team member information and roles</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdateUser} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit_first_name">First Name</Label>
-                <Input
-                  id="edit_first_name"
-                  name="first_name"
-                  type="text"
-                  defaultValue={editingUser?.first_name}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit_last_name">Last Name</Label>
-                <Input
-                  id="edit_last_name"
-                  name="last_name"
-                  type="text"
-                  defaultValue={editingUser?.last_name}
-                  required
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                value={editingUser?.email}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-3">
-              <Label>Roles (select at least one)</Label>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-role-admin"
-                    checked={selectedRoles.includes("admin")}
-                    onCheckedChange={() => handleRoleToggle("admin")}
-                  />
-                  <Label htmlFor="edit-role-admin" className="font-normal cursor-pointer">
-                    Admin
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-role-coach"
-                    checked={selectedRoles.includes("coach")}
-                    onCheckedChange={() => handleRoleToggle("coach")}
-                  />
-                  <Label htmlFor="edit-role-coach" className="font-normal cursor-pointer">
-                    Coach
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-role-player"
-                    checked={selectedRoles.includes("player")}
-                    onCheckedChange={() => handleRoleToggle("player")}
-                  />
-                  <Label htmlFor="edit-role-player" className="font-normal cursor-pointer">
-                    Player
-                  </Label>
-                </div>
-              </div>
-            </div>
-            {selectedRoles.includes('player') && (
-              <div className="space-y-3 border-t pt-3">
-                <Label className="text-base">Player Position</Label>
-                <div className="space-y-2">
-                  <Label htmlFor="primary-position">Position</Label>
-                  <Select value={primaryPosition} onValueChange={(v) => setPrimaryPosition(v as FootballPosition)}>
-                    <SelectTrigger id="primary-position">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      {POSITION_OPTIONS.map(pos => (
-                        <SelectItem key={pos} value={pos}>
-                          {POSITION_LABELS[pos]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Updating..." : "Update User"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ResponsiveDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        title="Edit User"
+        description="Update team member information and roles"
+      >
+        <form onSubmit={handleUpdateUser} className="space-y-4">
+...
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Updating..." : "Update User"}
+          </Button>
+        </form>
+      </ResponsiveDialog>
     </div>
   );
 };

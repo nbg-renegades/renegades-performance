@@ -7,13 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, TrendingUp, Pencil, Trash2, Download } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 import { performanceEntrySchema } from "@/lib/validation";
 import { z } from "zod";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PerformanceEntry {
   id: string;
@@ -31,6 +32,7 @@ interface PerformanceEntry {
 
 const Performance = () => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [entries, setEntries] = useState<PerformanceEntry[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
   const [userRole, setUserRole] = useState("");
@@ -408,13 +410,13 @@ const Performance = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Performance Tracking</h1>
-          <p className="text-muted-foreground">Monitor and record athletic performance metrics</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Performance Tracking</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Monitor and record athletic performance metrics</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {(userRole === "coach" || userRole === "admin") && (
             <Button variant="outline" onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-2" />
@@ -422,85 +424,27 @@ const Performance = () => {
             </Button>
           )}
           {canAddEntry && (
-            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
-              <DialogTrigger asChild>
+            <ResponsiveDialog
+              open={isDialogOpen}
+              onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}
+              title="Add Performance Entry"
+              description="Record a new performance metric"
+              trigger={
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Entry
                 </Button>
-              </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add Performance Entry</DialogTitle>
-                <DialogDescription>Record a new performance metric</DialogDescription>
-              </DialogHeader>
+              }
+            >
               <form onSubmit={handleAddEntry} className="space-y-4">
-                {(userRole === "coach" || userRole === "admin") && (
-                  <div className="space-y-2">
-                    <Label htmlFor="player_id">Player</Label>
-                    <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select player" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {players.map((player) => (
-                          <SelectItem key={player.id} value={player.id}>
-                            {player.first_name} {player.last_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <input type="hidden" name="player_id" value={selectedPlayerId} />
-                  </div>
-                )}
-                {userRole === "player" && (
-                  <input type="hidden" name="player_id" value={currentUserId} />
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="metric_type">Metric</Label>
-                  <Select value={selectedMetric} onValueChange={setSelectedMetric}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select metric" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(metricDisplayNames).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <input type="hidden" name="metric_type" value={selectedMetric} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="value">Value</Label>
-                  <Input
-                    id="value"
-                    name="value"
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="Enter value"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="entry_date">Date</Label>
-                  <Input
-                    id="entry_date"
-                    name="entry_date"
-                    type="date"
-                    required
-                    defaultValue={new Date().toISOString().split("T")[0]}
-                  />
-                </div>
+...
                 <Button type="submit" className="w-full" disabled={
                   isLoading || ((userRole === "coach" || userRole === "admin") && !selectedPlayerId) || !selectedMetric
                 }>
                   {isLoading ? "Adding..." : "Add Entry"}
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
+            </ResponsiveDialog>
         )}
         </div>
       </div>
@@ -594,26 +538,27 @@ const Performance = () => {
               filteredEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-4"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-3"
                 >
                   <div className="flex-1">
-                    <p className="font-semibold">
+                    <p className="font-semibold text-sm sm:text-base">
                       {entry.player?.first_name} {entry.player?.last_name}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-muted-foreground">
                       {metricDisplayNames[entry.metric_type]}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-primary">
-                      {entry.value} <span className="text-sm text-muted-foreground">{entry.unit}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(entry.entry_date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  {canEditEntry(entry) && (
-                    <div className="flex gap-2">
+                  <div className="flex items-center justify-between sm:justify-end gap-3">
+                    <div className="text-left sm:text-right">
+                      <p className="text-xl sm:text-2xl font-bold text-primary">
+                        {entry.value} <span className="text-xs sm:text-sm text-muted-foreground">{entry.unit}</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(entry.entry_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {canEditEntry(entry) && (
+                      <div className="flex gap-2">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -628,8 +573,9 @@ const Performance = () => {
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -638,55 +584,19 @@ const Performance = () => {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Performance Entry</DialogTitle>
-            <DialogDescription>Update the performance metric value</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditEntry} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Player</Label>
-              <Input
-                value={editingEntry?.player ? `${editingEntry.player.first_name} ${editingEntry.player.last_name}` : ''}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Metric</Label>
-              <Input
-                value={editingEntry ? metricDisplayNames[editingEntry.metric_type] : ''}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_value">Value</Label>
-              <Input
-                id="edit_value"
-                name="value"
-                type="number"
-                step="0.01"
-                required
-                defaultValue={editingEntry?.value}
-                placeholder="Enter value"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_entry_date">Date</Label>
-              <Input
-                id="edit_entry_date"
-                name="entry_date"
-                type="date"
-                required
-                defaultValue={editingEntry?.entry_date}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Updating..." : "Update Entry"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ResponsiveDialog
+        open={!!editingEntry}
+        onOpenChange={(open) => !open && setEditingEntry(null)}
+        title="Edit Performance Entry"
+        description="Update the performance metric value"
+      >
+        <form onSubmit={handleEditEntry} className="space-y-4">
+...
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Updating..." : "Update Entry"}
+          </Button>
+        </form>
+      </ResponsiveDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingEntryId} onOpenChange={(open) => !open && setDeletingEntryId(null)}>
