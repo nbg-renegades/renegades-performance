@@ -38,23 +38,29 @@ const MainLayout = () => {
   }, []);
 
   const fetchUserRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
+    if (!userId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
 
-    if (!error && data && data.length > 0) {
-      // Get all roles
-      const roles = data.map(r => r.role);
-      
-      // Set the highest priority role (admin > coach > player)
-      if (roles.includes("admin")) {
-        setUserRole("admin");
-      } else if (roles.includes("coach")) {
-        setUserRole("coach");
-      } else if (roles.includes("player")) {
-        setUserRole("player");
+      if (!error && data && data.length > 0) {
+        // Get all roles
+        const roles = data.map(r => r.role);
+        
+        // Set the highest priority role (admin > coach > player)
+        if (roles.includes("admin")) {
+          setUserRole("admin");
+        } else if (roles.includes("coach")) {
+          setUserRole("coach");
+        } else if (roles.includes("player")) {
+          setUserRole("player");
+        }
       }
+    } catch (error) {
+      // Silently handle errors during role fetching
     }
   };
 

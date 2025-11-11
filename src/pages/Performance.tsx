@@ -73,24 +73,20 @@ const Performance = () => {
     // Get all players for coaches/admins
     if (roles.includes("coach") || roles.includes("admin")) {
       // First get all user_ids with player role
-      const { data: playerRoles, error: rolesError } = await supabase
+      const { data: playerRoles } = await supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "player");
 
-      console.log("Player roles:", playerRoles, "Error:", rolesError);
-
       if (playerRoles && playerRoles.length > 0) {
         const playerIds = playerRoles.map(r => r.user_id);
-        console.log("Player IDs:", playerIds);
         
         // Then get profiles for those users
-        const { data: playersData, error: profilesError } = await supabase
+        const { data: playersData } = await supabase
           .from("profiles")
           .select("id, first_name, last_name")
           .in("id", playerIds);
 
-        console.log("Players data:", playersData, "Error:", profilesError);
         setPlayers(playersData || []);
       } else {
         setPlayers([]);
