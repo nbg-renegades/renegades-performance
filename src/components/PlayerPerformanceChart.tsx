@@ -84,6 +84,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
     setIsLoading(true);
     try {
       const months = ZOOM_LEVELS[zoomLevel].months;
+      const endDate = new Date();
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
 
@@ -93,15 +94,16 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
         .eq('player_id', activePlayerId)
         .eq('metric_type', selectedMetric)
         .gte('entry_date', startDate.toISOString().split('T')[0])
+        .lte('entry_date', endDate.toISOString().split('T')[0])
         .order('entry_date', { ascending: true });
 
-      if (data) {
-        const formattedData = data.map(entry => ({
-          date: new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          value: entry.value,
-        }));
-        setChartData(formattedData);
-      }
+      const formattedData = (data || []).map(entry => ({
+        date: new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
+        value: entry.value,
+        fullDate: entry.entry_date,
+      }));
+      
+      setChartData(formattedData);
     } catch (error) {
       console.error('Error fetching chart data:', error);
     } finally {
@@ -168,9 +170,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
         <div className="mt-4">
           {isLoading ? (
             <Skeleton className={`h-[${chartHeight}px] w-full`} />
-          ) : chartData.length > 0 ? (
+          ) : (
             <ResponsiveContainer width="100%" height={chartHeight}>
-              <LineChart data={chartData}>
+              <LineChart data={chartData} margin={{ bottom: isMobile ? 20 : 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="date" 
@@ -211,10 +213,6 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                 />
               </LineChart>
             </ResponsiveContainer>
-          ) : (
-            <div className={`h-[${chartHeight}px] flex items-center justify-center text-muted-foreground`}>
-              No data available for the selected time period
-            </div>
           )}
         </div>
       </CardContent>
