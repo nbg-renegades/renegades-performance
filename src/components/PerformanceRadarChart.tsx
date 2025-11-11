@@ -177,24 +177,6 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
             </div>
           </TabsContent>
 
-          <TabsContent value="position" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="position-select">Select Position</Label>
-              <Select value={selectedPosition} onValueChange={setSelectedPosition}>
-                <SelectTrigger id="position-select" className="bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-popover z-50">
-                  {POSITION_OPTIONS.filter(pos => pos !== 'unassigned').map(pos => (
-                    <SelectItem key={pos} value={pos}>
-                      {POSITION_LABELS[pos]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-
           <TabsContent value="best" />
           <TabsContent value="my_position" />
           <TabsContent value="offense" />
