@@ -128,14 +128,15 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       </CardHeader>
       <CardContent>
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="average">Average</TabsTrigger>
-            <TabsTrigger value="best">Best</TabsTrigger>
-            <TabsTrigger value="players">Players</TabsTrigger>
-            <TabsTrigger value="position">Position</TabsTrigger>
-            <TabsTrigger value="offense">Offense</TabsTrigger>
-            <TabsTrigger value="defense">Defense</TabsTrigger>
-            {userRole === 'player' && <TabsTrigger value="historical">Historical</TabsTrigger>}
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 gap-1 h-auto">
+            <TabsTrigger value="average" className="text-xs sm:text-sm">Average</TabsTrigger>
+            <TabsTrigger value="best" className="text-xs sm:text-sm">Best</TabsTrigger>
+            {userRole === 'player' && <TabsTrigger value="my_position" className="text-xs sm:text-sm">My Position</TabsTrigger>}
+            <TabsTrigger value="players" className="text-xs sm:text-sm">Players</TabsTrigger>
+            <TabsTrigger value="position" className="text-xs sm:text-sm">Position</TabsTrigger>
+            <TabsTrigger value="offense" className="text-xs sm:text-sm">Offense</TabsTrigger>
+            <TabsTrigger value="defense" className="text-xs sm:text-sm">Defense</TabsTrigger>
+            {userRole === 'player' && <TabsTrigger value="historical" className="text-xs sm:text-sm">Historical</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="players" className="space-y-4">
@@ -204,6 +205,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
 
           <TabsContent value="average" />
           <TabsContent value="best" />
+          <TabsContent value="my_position" />
           <TabsContent value="offense" />
           <TabsContent value="defense" />
         </Tabs>
@@ -212,12 +214,12 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
           {isLoading ? (
             <Skeleton className="h-[400px] w-full" />
           ) : chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={400}>
               <RadarChart data={chartData}>
                 <PolarGrid stroke="hsl(var(--border))" />
                 <PolarAngleAxis 
                   dataKey="metric" 
-                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 11 }}
                 />
                 <PolarRadiusAxis 
                   angle={90} 
@@ -236,7 +238,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                   />
                 ))}
                 <Legend 
-                  wrapperStyle={{ paddingTop: '20px' }}
+                  wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
                   iconType="line"
                 />
                 <Tooltip
@@ -251,7 +253,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
               </RadarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground text-sm">
               {mode === 'players' && selectedPlayerIds.length === 0 
                 ? 'Select players to compare'
                 : mode === 'historical' && historicalPeriods.length === 0

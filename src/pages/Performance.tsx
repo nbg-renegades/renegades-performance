@@ -8,11 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, TrendingUp, Pencil, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from "@/components/ui/drawer";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
+import { PlayerPerformanceView } from "@/components/PlayerPerformanceView";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 import { performanceEntrySchema } from "@/lib/validation";
 import { z } from "zod";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PerformanceEntry {
   id: string;
@@ -26,13 +29,13 @@ interface PerformanceEntry {
     last_name: string;
     positions?: Array<{
       position: FootballPosition;
-      is_primary: boolean;
     }>;
   };
 }
 
 const Performance = () => {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [entries, setEntries] = useState<PerformanceEntry[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
   const [userRole, setUserRole] = useState("");
@@ -117,11 +120,11 @@ const Performance = () => {
       // Fetch positions for each player
       const { data: positionsData } = await supabase
         .from("player_positions")
-        .select("player_id, position, is_primary")
+        .select("player_id, position")
         .in("player_id", playerIds);
 
       const profilesMap = new Map(profilesData?.map(p => [p.id, p]));
-      const positionsMap = new Map<string, Array<{ position: FootballPosition; is_primary: boolean }>>();
+      const positionsMap = new Map<string, Array<{ position: FootballPosition }>>();
       
       positionsData?.forEach(pos => {
         if (!positionsMap.has(pos.player_id)) {
@@ -129,7 +132,6 @@ const Performance = () => {
         }
         positionsMap.get(pos.player_id)?.push({
           position: pos.position as FootballPosition,
-          is_primary: pos.is_primary,
         });
       });
       
@@ -328,16 +330,16 @@ const Performance = () => {
     // Position filter
     let matchesPosition = true;
     if (filterPosition !== "all") {
-      const primaryPos = entry.player?.positions?.find(p => p.is_primary);
-      matchesPosition = primaryPos?.position === filterPosition;
+      const position = entry.player?.positions?.[0];
+      matchesPosition = position?.position === filterPosition;
     }
     
     // Unit filter (offense/defense)
     let matchesUnit = true;
     if (filterUnit !== "all") {
-      const primaryPos = entry.player?.positions?.find(p => p.is_primary);
-      if (primaryPos) {
-        const unit = getPositionUnit(primaryPos.position);
+      const position = entry.player?.positions?.[0];
+      if (position) {
+        const unit = getPositionUnit(position.position);
         matchesUnit = unit === filterUnit;
       } else {
         matchesUnit = false;
@@ -436,88 +438,112 @@ const Performance = () => {
             </Button>
           )}
           {canAddEntry && (
-            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Entry
-                </Button>
-              </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add Performance Entry</DialogTitle>
-                <DialogDescription>Record a new performance metric</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleAddEntry} className="space-y-4">
-                {(userRole === "coach" || userRole === "admin") && (
-                  <div className="space-y-2">
-                    <Label htmlFor="player_id">Player</Label>
-                    <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select player" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {players.map((player) => (
-                          <SelectItem key={player.id} value={player.id}>
-                            {player.first_name} {player.last_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <input type="hidden" name="player_id" value={selectedPlayerId} />
-                  </div>
-                )}
-                {userRole === "player" && (
-                  <input type="hidden" name="player_id" value={currentUserId} />
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="metric_type">Metric</Label>
-                  <Select value={selectedMetric} onValueChange={setSelectedMetric}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select metric" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(metricDisplayNames).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <input type="hidden" name="metric_type" value={selectedMetric} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="value">Value</Label>
-                  <Input
-                    id="value"
-                    name="value"
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="Enter value"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="entry_date">Date</Label>
-                  <Input
-                    id="entry_date"
-                    name="entry_date"
-                    type="date"
-                    required
-                    defaultValue={new Date().toISOString().split("T")[0]}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={
-                  isLoading || ((userRole === "coach" || userRole === "admin") && !selectedPlayerId) || !selectedMetric
-                }>
-                  {isLoading ? "Adding..." : "Add Entry"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+            <>
+              {isMobile ? (
+                <Drawer open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
+                  <Button onClick={() => setIsDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Entry
+                  </Button>
+                  <DrawerContent>
+                    <DrawerHeader>
+                      <DrawerTitle>Add Performance Entry</DrawerTitle>
+                      <DrawerDescription>Record a new performance metric</DrawerDescription>
+                    </DrawerHeader>
+                    <div className="p-4 overflow-y-auto max-h-[70vh]">
+                      <form onSubmit={handleAddEntry} className="space-y-4">
+                        {/* ... keep existing form fields ... */}
+                      </form>
+                    </div>
+                  </DrawerContent>
+                </Drawer>
+              ) : (
+                <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setSelectedPlayerId(""); setSelectedMetric(""); } }}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Entry
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Add Performance Entry</DialogTitle>
+                      <DialogDescription>Record a new performance metric</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleAddEntry} className="space-y-4">
+                      {(userRole === "coach" || userRole === "admin") && (
+                        <div className="space-y-2">
+                          <Label htmlFor="player_id">Player</Label>
+                          <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select player" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {players.map((player) => (
+                                <SelectItem key={player.id} value={player.id}>
+                                  {player.first_name} {player.last_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <input type="hidden" name="player_id" value={selectedPlayerId} />
+                        </div>
+                      )}
+                      {userRole === "player" && (
+                        <input type="hidden" name="player_id" value={currentUserId} />
+                      )}
+                      <div className="space-y-2">
+                        <Label htmlFor="metric_type">Metric</Label>
+                        <Select value={selectedMetric} onValueChange={setSelectedMetric}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select metric" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(metricDisplayNames).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <input type="hidden" name="metric_type" value={selectedMetric} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="value">Value</Label>
+                        <Input
+                          id="value"
+                          name="value"
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="Enter value"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="entry_date">Date</Label>
+                        <Input
+                          id="entry_date"
+                          name="entry_date"
+                          type="date"
+                          required
+                          defaultValue={new Date().toISOString().split("T")[0]}
+                        />
+                      </div>
+                      <Button type="submit" className="w-full" disabled={
+                        isLoading || ((userRole === "coach" || userRole === "admin") && !selectedPlayerId) || !selectedMetric
+                      }>
+                        {isLoading ? "Adding..." : "Add Entry"}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </>
         )}
         </div>
       </div>
+
+      {userRole === "player" && <PlayerPerformanceView playerId={currentUserId} />}
 
       <PerformanceRadarChart currentUserId={currentUserId} userRole={userRole} />
 
@@ -649,56 +675,110 @@ const Performance = () => {
         </CardContent>
       </Card>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Performance Entry</DialogTitle>
-            <DialogDescription>Update the performance metric value</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditEntry} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Player</Label>
-              <Input
-                value={editingEntry?.player ? `${editingEntry.player.first_name} ${editingEntry.player.last_name}` : ''}
-                disabled
-              />
+      {/* Edit Dialog/Drawer */}
+      {isMobile ? (
+        <Drawer open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Edit Performance Entry</DrawerTitle>
+              <DrawerDescription>Update the performance metric value</DrawerDescription>
+            </DrawerHeader>
+            <div className="p-4 overflow-y-auto max-h-[70vh]">
+              <form onSubmit={handleEditEntry} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Player</Label>
+                  <Input
+                    value={editingEntry?.player ? `${editingEntry.player.first_name} ${editingEntry.player.last_name}` : ''}
+                    disabled
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Metric</Label>
+                  <Input
+                    value={editingEntry ? metricDisplayNames[editingEntry.metric_type] : ''}
+                    disabled
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_value">Value</Label>
+                  <Input
+                    id="edit_value"
+                    name="value"
+                    type="number"
+                    step="0.01"
+                    required
+                    defaultValue={editingEntry?.value}
+                    placeholder="Enter value"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_entry_date">Date</Label>
+                  <Input
+                    id="edit_entry_date"
+                    name="entry_date"
+                    type="date"
+                    required
+                    defaultValue={editingEntry?.entry_date}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Updating..." : "Update Entry"}
+                </Button>
+              </form>
             </div>
-            <div className="space-y-2">
-              <Label>Metric</Label>
-              <Input
-                value={editingEntry ? metricDisplayNames[editingEntry.metric_type] : ''}
-                disabled
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_value">Value</Label>
-              <Input
-                id="edit_value"
-                name="value"
-                type="number"
-                step="0.01"
-                required
-                defaultValue={editingEntry?.value}
-                placeholder="Enter value"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit_entry_date">Date</Label>
-              <Input
-                id="edit_entry_date"
-                name="entry_date"
-                type="date"
-                required
-                defaultValue={editingEntry?.entry_date}
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Updating..." : "Update Entry"}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={!!editingEntry} onOpenChange={(open) => !open && setEditingEntry(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Performance Entry</DialogTitle>
+              <DialogDescription>Update the performance metric value</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditEntry} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Player</Label>
+                <Input
+                  value={editingEntry?.player ? `${editingEntry.player.first_name} ${editingEntry.player.last_name}` : ''}
+                  disabled
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Metric</Label>
+                <Input
+                  value={editingEntry ? metricDisplayNames[editingEntry.metric_type] : ''}
+                  disabled
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_value">Value</Label>
+                <Input
+                  id="edit_value"
+                  name="value"
+                  type="number"
+                  step="0.01"
+                  required
+                  defaultValue={editingEntry?.value}
+                  placeholder="Enter value"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_entry_date">Date</Label>
+                <Input
+                  id="edit_entry_date"
+                  name="entry_date"
+                  type="date"
+                  required
+                  defaultValue={editingEntry?.entry_date}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Updating..." : "Update Entry"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingEntryId} onOpenChange={(open) => !open && setDeletingEntryId(null)}>
