@@ -21,7 +21,8 @@ interface TeamBestMetric {
 const Dashboard = () => {
   const [stats, setStats] = useState({
     totalPlayers: 0,
-    recentEntries: 0,
+    teamRecentEntries: 0,
+    userRecentEntries: 0,
     userRoles: [] as string[],
     userName: "",
     userId: "",
@@ -48,39 +49,40 @@ const Dashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get user profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("first_name, last_name")
-      .eq("id", user.id)
-      .single();
+    // Get user profile and roles in parallel
+    const [profileResult, rolesResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+    ]);
 
-    // Get all user roles (users can have multiple roles)
-    const { data: rolesData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-    
-    const roles = (rolesData || []).map((r: any) => r.role);
+    const profile = profileResult.data;
+    const roles = (rolesResult.data || []).map((r: any) => r.role);
 
-    // Get total players
-    const { count: playerCount } = await supabase
-      .from("user_roles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "player");
+    // Fetch aggregated stats from backend
+    const { data: aggregatedStats, error: statsError } = await supabase.functions.invoke(
+      'get-dashboard-stats',
+      {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      }
+    );
 
-    // Get recent entries count (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const { count: entriesCount } = await supabase
-      .from("performance_entries")
-      .select("*", { count: "exact", head: true })
-      .gte("entry_date", thirtyDaysAgo.toISOString().split("T")[0]);
+    if (statsError) {
+      console.error('Error fetching dashboard stats:', statsError);
+    }
 
     setStats({
-      totalPlayers: playerCount || 0,
-      recentEntries: entriesCount || 0,
+      totalPlayers: aggregatedStats?.totalPlayers || 0,
+      teamRecentEntries: aggregatedStats?.teamRecentEntries || 0,
+      userRecentEntries: aggregatedStats?.userRecentEntries || 0,
       userRoles: roles,
       userName: profile ? `${profile.first_name} ${profile.last_name}` : "",
       userId: user.id,
@@ -214,8 +216,18 @@ const Dashboard = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.recentEntries}</div>
-            <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
+            <div className="space-y-2">
+              <div>
+                <div className="text-2xl font-bold text-primary">{stats.teamRecentEntries}</div>
+                <p className="text-xs text-muted-foreground">Team entries (last 30 days)</p>
+              </div>
+              {primaryRole === "player" && (
+                <div className="pt-2 border-t border-border/50">
+                  <div className="text-xl font-bold text-primary">{stats.userRecentEntries}</div>
+                  <p className="text-xs text-muted-foreground">Your entries (last 30 days)</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 

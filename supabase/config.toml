@@ -2,3 +2,6 @@ project_id = "rqzkzstltfdtypkvriue"
 
 [functions.get-performance-benchmarks]
 verify_jwt = false
+
+[functions.get-dashboard-stats]
+verify_jwt = false
