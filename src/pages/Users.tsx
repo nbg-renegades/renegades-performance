@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, UserPlus, Shield, Pencil, Target } from "lucide-react";
+import { Plus, UserPlus, Shield, Pencil, Target, Trash2 } from "lucide-react";
 import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
 import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { userProfileSchema } from "@/lib/validation";
 import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UserProfile {
   id: string;
@@ -34,6 +44,8 @@ const Users = () => {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [primaryPosition, setPrimaryPosition] = useState<FootballPosition>('unassigned');
+  const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -186,6 +198,63 @@ const Users = () => {
     setPrimaryPosition((user.position as FootballPosition) || 'unassigned');
     
     setIsEditDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    setIsLoading(true);
+
+    try {
+      // Delete performance entries
+      const { error: perfError } = await supabase
+        .from("performance_entries")
+        .delete()
+        .eq("player_id", userToDelete.id);
+
+      if (perfError) throw perfError;
+
+      // Delete player positions
+      const { error: posError } = await supabase
+        .from("player_positions")
+        .delete()
+        .eq("player_id", userToDelete.id);
+
+      if (posError) throw posError;
+
+      // Delete user roles
+      const { error: rolesError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userToDelete.id);
+
+      if (rolesError) throw rolesError;
+
+      // Delete profile
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", userToDelete.id);
+
+      if (profileError) throw profileError;
+
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+
+      setIsDeleteDialogOpen(false);
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleUpdateUser = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -453,7 +522,7 @@ const Users = () => {
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.username}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
+                   <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap gap-2">
                         {user.roles?.map((ur, idx) => (
@@ -471,14 +540,26 @@ const Users = () => {
                         </div>
                       )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                      className="shrink-0"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditUser(user)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setUserToDelete(user);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -553,6 +634,29 @@ const Users = () => {
           </Button>
         </form>
       </ResponsiveDialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {userToDelete?.first_name} {userToDelete?.last_name}? 
+              This will permanently delete their profile, roles, positions, and all performance entries. 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteUser}
+              disabled={isLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
