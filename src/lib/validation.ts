@@ -20,10 +20,10 @@ export const performanceEntrySchema = z.object({
 
 // User profile validation
 export const userProfileSchema = z.object({
-  email: z.string()
+  username: z.string()
     .trim()
-    .email({ message: "Invalid email address" })
-    .max(255, { message: "Email must be less than 255 characters" }),
+    .min(1, { message: "Username is required" })
+    .max(255, { message: "Username must be less than 255 characters" }),
   first_name: z.string()
     .trim()
     .min(1, { message: "First name is required" })
@@ -39,30 +39,25 @@ export const userProfileSchema = z.object({
 });
 
 // Auth validation
-export const signUpSchema = z.object({
-  email: z.string()
-    .trim()
-    .email({ message: "Invalid email address" })
-    .max(255, { message: "Email must be less than 255 characters" }),
-  password: z.string()
-    .min(6, { message: "Password must be at least 6 characters" })
-    .max(128, { message: "Password must be less than 128 characters" }),
-  first_name: z.string()
-    .trim()
-    .min(1, { message: "First name is required" })
-    .max(100, { message: "First name must be less than 100 characters" }),
-  last_name: z.string()
-    .trim()
-    .min(1, { message: "Last name is required" })
-    .max(100, { message: "Last name must be less than 100 characters" }),
-});
-
 export const signInSchema = z.object({
-  email: z.string()
+  username: z.string()
     .trim()
-    .email({ message: "Invalid email address" })
-    .max(255, { message: "Email must be less than 255 characters" }),
+    .min(1, { message: "Username is required" })
+    .max(255, { message: "Username must be less than 255 characters" }),
   password: z.string()
     .min(1, { message: "Password is required" })
     .max(128, { message: "Password must be less than 128 characters" }),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string()
+    .min(1, { message: "Current password is required" }),
+  newPassword: z.string()
+    .min(6, { message: "New password must be at least 6 characters" })
+    .max(128, { message: "New password must be less than 128 characters" }),
+  confirmPassword: z.string()
+    .min(1, { message: "Please confirm your password" }),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });

@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Users, LogOut, Trophy } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Users, LogOut, Trophy, Key } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -29,6 +29,10 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
   const location = useLocation();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleChangePassword = () => {
+    navigate("/auth", { state: { changePassword: true } });
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -92,7 +96,15 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
+      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2">
+        <Button
+          variant="ghost"
+          onClick={handleChangePassword}
+          className="w-full justify-start hover:bg-sidebar-accent"
+        >
+          <Key className="h-4 w-4" />
+          {!collapsed && <span>Change Password</span>}
+        </Button>
         <Button
           variant="ghost"
           onClick={handleLogout}

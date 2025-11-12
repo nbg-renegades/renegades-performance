@@ -17,7 +17,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 interface UserProfile {
   id: string;
-  email: string;
+  username: string;
   first_name: string;
   last_name: string;
   roles?: Array<{ role: string }>;
@@ -98,14 +98,14 @@ const Users = () => {
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
+    const username = formData.get("username") as string;
     const password = formData.get("password") as string;
     const firstName = formData.get("first_name") as string;
     const lastName = formData.get("last_name") as string;
 
     // Validate input
     const validation = userProfileSchema.safeParse({
-      email: email.trim(),
+      username: username.trim(),
       first_name: firstName.trim(),
       last_name: lastName.trim(),
       password,
@@ -123,9 +123,9 @@ const Users = () => {
     }
 
     try {
-      // Create user via Supabase Auth
+      // Create user via Supabase Auth (using username as email)
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: username.trim(),
         password,
         options: {
           data: {
@@ -388,8 +388,8 @@ const Users = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="you@example.com" required />
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" name="username" type="text" placeholder="Enter username" required />
             </div>
 
             <div className="space-y-2">
@@ -450,7 +450,7 @@ const Users = () => {
                       <p className="font-semibold text-sm sm:text-base truncate">
                         {user.first_name} {user.last_name}
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.email}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{user.username}</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-3 pl-11 sm:pl-0">
