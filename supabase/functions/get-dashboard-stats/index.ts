@@ -51,7 +51,6 @@ Deno.serve(async (req) => {
     // Verify user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      console.error('User verification failed:', userError);
       throw new Error('Unauthorized');
     }
 
@@ -83,17 +82,14 @@ Deno.serve(async (req) => {
     ]);
 
     if (playersResult.error) {
-      console.error('Error fetching player count:', playersResult.error);
       throw playersResult.error;
     }
 
     if (teamEntriesResult.error) {
-      console.error('Error fetching team entries:', teamEntriesResult.error);
       throw teamEntriesResult.error;
     }
 
     if (userEntriesResult.error) {
-      console.error('Error fetching user entries:', userEntriesResult.error);
       throw userEntriesResult.error;
     }
 
@@ -114,7 +110,6 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in get-dashboard-stats:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),

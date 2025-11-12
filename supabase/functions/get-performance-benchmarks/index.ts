@@ -79,7 +79,6 @@ Deno.serve(async (req) => {
       .order('entry_date', { ascending: false });
 
     if (allDataError) {
-      console.error('Error fetching performance data:', allDataError.message);
       throw allDataError;
     }
 
@@ -96,7 +95,6 @@ Deno.serve(async (req) => {
         .eq('position', position);
 
       if (posError) {
-        console.error('Error fetching position players:', posError.message);
         throw posError;
       }
 
@@ -113,7 +111,6 @@ Deno.serve(async (req) => {
         .in('position', positions);
 
       if (unitError) {
-        console.error('Error fetching unit players:', unitError.message);
         throw unitError;
       }
 
@@ -139,7 +136,6 @@ Deno.serve(async (req) => {
       const { data: entries, error: entriesError } = await query;
 
       if (entriesError) {
-        console.error(`Error fetching metric ${metric}:`, entriesError.message);
         continue;
       }
 
@@ -169,7 +165,6 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Benchmark calculation error:', error instanceof Error ? error.message : 'Unknown error');
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ error: errorMessage }),

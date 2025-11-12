@@ -202,37 +202,25 @@ const Users = () => {
     setIsLoading(true);
 
     try {
-      // Delete performance entries
-      const { error: perfError } = await supabase
-        .from("performance_entries")
-        .delete()
-        .eq("player_id", userToDelete.id);
+      // Call backend function to delete user atomically
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          userId: userToDelete.id,
+        }),
+      });
 
-      if (perfError) throw perfError;
+      const result = await response.json();
 
-      // Delete player positions
-      const { error: posError } = await supabase
-        .from("player_positions")
-        .delete()
-        .eq("player_id", userToDelete.id);
-
-      if (posError) throw posError;
-
-      // Delete user roles
-      const { error: rolesError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userToDelete.id);
-
-      if (rolesError) throw rolesError;
-
-      // Delete profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userToDelete.id);
-
-      if (profileError) throw profileError;
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete user');
+      }
 
       toast({
         title: "Success",
