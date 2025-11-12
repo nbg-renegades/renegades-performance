@@ -1,13 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0';
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface DeleteUserRequest {
-  userId: string;
-}
+// Validation schema
+const deleteUserSchema = z.object({
+  userId: z.string().uuid('Invalid user ID format')
+});
+
+type DeleteUserRequest = z.infer<typeof deleteUserSchema>;
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -67,16 +71,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request body
-    const body: DeleteUserRequest = await req.json();
-    const { userId } = body;
+    // Parse and validate request body
+    const body = await req.json();
+    const validationResult = deleteUserSchema.safeParse(body);
 
-    if (!userId) {
+    if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing userId parameter' }),
+        JSON.stringify({ 
+          error: 'Validation failed', 
+          details: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const { userId } = validationResult.data;
 
     // Perform atomic deletion using service role (bypasses RLS)
     // Delete in order: performance_entries, player_positions, user_roles, profiles, auth.users

@@ -1,13 +1,27 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0'
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
-interface CreateUserRequest {
-  username: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  roles: string[];
-}
+// Validation schema
+const createUserSchema = z.object({
+  username: z.string()
+    .min(3, 'Username must be at least 3 characters')
+    .max(255, 'Username must be less than 255 characters')
+    .regex(/^[a-z]+\.[a-z]+$/, 'Username must follow firstname.lastname format (lowercase)'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(255, 'Password must be less than 255 characters'),
+  firstName: z.string()
+    .min(1, 'First name is required')
+    .max(100, 'First name must be less than 100 characters'),
+  lastName: z.string()
+    .min(1, 'Last name is required')
+    .max(100, 'Last name must be less than 100 characters'),
+  roles: z.array(z.enum(['admin', 'coach', 'player']))
+    .min(1, 'At least one role is required')
+})
+
+type CreateUserRequest = z.infer<typeof createUserSchema>
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -76,16 +90,21 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Parse request body
-    const { username, password, firstName, lastName, roles: userRoles }: CreateUserRequest = await req.json()
-
-    // Validate input
-    if (!username || !password || !firstName || !lastName || !userRoles || userRoles.length === 0) {
+    // Parse and validate request body
+    const body = await req.json()
+    const validationResult = createUserSchema.safeParse(body)
+    
+    if (!validationResult.success) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ 
+          error: 'Validation failed', 
+          details: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    const { username, password, firstName, lastName, roles: userRoles } = validationResult.data
 
     // Create user with admin API (appending @team.local for email validation)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
