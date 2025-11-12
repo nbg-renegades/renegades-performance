@@ -208,7 +208,7 @@ const Users = () => {
     const firstName = formData.get("first_name") as string;
     const lastName = formData.get("last_name") as string;
 
-    // Validate input (partial schema for editing, no password/email)
+    // Validate input (partial schema for editing, no password)
     const updateValidation = z.object({
       first_name: z.string()
         .trim()
