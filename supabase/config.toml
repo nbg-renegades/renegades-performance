@@ -1,7 +1,7 @@
 project_id = "rqzkzstltfdtypkvriue"
 
 [functions.get-dashboard-stats]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-user]
 verify_jwt = true
