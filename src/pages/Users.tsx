@@ -135,42 +135,38 @@ const Users = () => {
     }
 
     try {
-      // Create user via Supabase Auth (append domain to username for email validation)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: `${username.trim()}@team.local`,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-          },
+      // Call backend function to create user with admin privileges
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
         },
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+          firstName,
+          lastName,
+          roles: selectedRoles,
+        }),
       });
 
-      if (authError) throw authError;
+      const result = await response.json();
 
-      if (authData.user) {
-        // Add all selected roles
-        const roleInserts = selectedRoles.map(role => ({
-          user_id: authData.user.id,
-          role: role as any,
-        }));
-
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert(roleInserts);
-
-        if (roleError) throw roleError;
-
-        toast({
-          title: "Success",
-          description: "User created successfully",
-        });
-
-        setIsDialogOpen(false);
-        setSelectedRoles([]);
-        fetchUsers();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
       }
+
+      toast({
+        title: "Success",
+        description: "User created successfully",
+      });
+
+      setIsDialogOpen(false);
+      setSelectedRoles([]);
+      fetchUsers();
     } catch (error: any) {
       toast({
         title: "Error",
