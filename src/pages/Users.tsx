@@ -135,9 +135,9 @@ const Users = () => {
     }
 
     try {
-      // Create user via Supabase Auth (using username as email)
+      // Create user via Supabase Auth (append domain to username for email validation)
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: username.trim(),
+        email: `${username.trim()}@team.local`,
         password,
         options: {
           data: {

@@ -72,7 +72,7 @@ const Auth = () => {
 
       // Verify current password
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: profile.username,
+        email: `${profile.username}@team.local`,
         password: currentPassword,
       });
 
@@ -128,7 +128,7 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: username.trim(),
+        email: `${username.trim()}@team.local`,
         password,
       });
 
