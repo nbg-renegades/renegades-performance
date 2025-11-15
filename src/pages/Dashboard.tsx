@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, AlertCircle, Clock, Trophy } from "lucide-react";
@@ -19,6 +20,7 @@ interface TeamBestMetric {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalPlayers: 0,
     teamRecentEntries: 0,
@@ -111,7 +113,7 @@ const Dashboard = () => {
     const sixMonthResults: TeamBestMetric[] = [];
 
     allMetrics.forEach(metric => {
-      const isLowerBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'].includes(metric);
+      const isLowerBetter = ['40yd_dash', 'shuttle_5_10_5'].includes(metric);
       
       // All-time best
       const metricEntries = allTimeData?.filter(e => e.metric_type === metric) || [];
@@ -368,19 +370,28 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent className="space-y-2">
           {(primaryRole === "coach" || primaryRole === "admin") && (
-            <div className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
+            <div 
+              onClick={() => navigate("/performance")}
+              className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
+            >
               <h3 className="font-semibold mb-1">Add Performance Entry</h3>
               <p className="text-sm text-muted-foreground">Record new metrics for players</p>
             </div>
           )}
           {primaryRole === "player" && (
-            <div className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
+            <div 
+              onClick={() => navigate("/performance")}
+              className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
+            >
               <h3 className="font-semibold mb-1">View My Progress</h3>
               <p className="text-sm text-muted-foreground">Check your performance trends</p>
             </div>
           )}
           {primaryRole === "admin" && (
-            <div className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer">
+            <div 
+              onClick={() => navigate("/users")}
+              className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
+            >
               <h3 className="font-semibold mb-1">Manage Users</h3>
               <p className="text-sm text-muted-foreground">Add or edit team members</p>
             </div>

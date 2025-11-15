@@ -5,10 +5,9 @@ export const performanceEntrySchema = z.object({
   player_id: z.string().uuid({ message: "Invalid player ID" }),
   metric_type: z.enum([
     'vertical_jump',
-    'broad_jump', 
+    'jump_gather', 
     '40yd_dash',
-    '3cone_drill',
-    'shuffle_run',
+    'shuttle_5_10_5',
     'pushups_1min'
   ], { message: "Invalid metric type" }),
   value: z.number()

@@ -24,11 +24,16 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ userRole }: AppSidebarProps) {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleNavClick = () => {
+    // Close mobile sidebar when navigation item is clicked
+    setOpenMobile(false);
+  };
 
   const handleChangePassword = () => {
     navigate("/auth", { state: { changePassword: true } });
@@ -82,6 +87,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
                     <NavLink
                       to={item.url}
                       end
+                      onClick={handleNavClick}
                       className="hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >

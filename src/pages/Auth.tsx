@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trophy } from "lucide-react";
 import { signInSchema, changePasswordSchema } from "@/lib/validation";
 import { useEffect } from "react";
+import logo from "@/assets/logo.png";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -156,9 +157,7 @@ const Auth = () => {
         <Card className="w-full max-w-md shadow-card border-border/50">
           <CardHeader className="text-center space-y-4">
             <div className="flex justify-center">
-              <div className="p-3 rounded-xl bg-gradient-primary shadow-glow">
-                <Trophy className="h-8 w-8 text-primary-foreground" />
-              </div>
+              <img src={logo} alt="Flag Football Logo" className="h-20 w-20" />
             </div>
             <CardTitle className="text-2xl font-bold">Change Password</CardTitle>
             <CardDescription>Update your account password</CardDescription>
@@ -222,9 +221,7 @@ const Auth = () => {
       <Card className="w-full max-w-md shadow-card border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="p-3 rounded-xl bg-gradient-primary shadow-glow">
-              <Trophy className="h-8 w-8 text-primary-foreground" />
-            </div>
+            <img src={logo} alt="Flag Football Logo" className="h-20 w-20" />
           </div>
           <CardTitle className="text-3xl font-bold">Flag Football Center</CardTitle>
           <CardDescription>Sign in to access your account</CardDescription>
