@@ -1,4 +1,5 @@
-import { LayoutDashboard, TrendingUp, Users, LogOut, Trophy, Key } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Users, LogOut, Key } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -64,9 +65,7 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
     <Sidebar className={collapsed ? "w-14" : "w-60"} collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-primary shadow-glow">
-            <Trophy className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <img src={logo} alt="Renegades Logo" className="h-10 w-10 object-contain" />
           {!collapsed && (
             <div>
               <h2 className="font-bold text-sm">Flag Football</h2>
