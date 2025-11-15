@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, UserPlus, Shield, Pencil, Target, Trash2 } from "lucide-react";
+import { Plus, UserPlus, Shield, Pencil, Target, Trash2, KeyRound } from "lucide-react";
 import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
 import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,9 @@ const Users = () => {
   const [primaryPosition, setPrimaryPosition] = useState<FootballPosition>('unassigned');
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
+  const [userToResetPassword, setUserToResetPassword] = useState<UserProfile | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -230,6 +233,61 @@ const Users = () => {
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
       fetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!userToResetPassword || !newPassword) return;
+
+    // Validate password
+    if (newPassword.length < 6) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/reset-user-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          userId: userToResetPassword.id,
+          newPassword: newPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to reset password');
+      }
+
+      toast({
+        title: "Success",
+        description: "Password reset successfully",
+      });
+
+      setIsPasswordResetDialogOpen(false);
+      setUserToResetPassword(null);
+      setNewPassword("");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -528,6 +586,17 @@ const Users = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => {
+                          setUserToResetPassword(user);
+                          setIsPasswordResetDialogOpen(true);
+                        }}
+                        title="Reset Password"
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleEditUser(user)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -637,6 +706,41 @@ const Users = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isPasswordResetDialogOpen} onOpenChange={setIsPasswordResetDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Password</AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter a new password for {userToResetPassword?.first_name} {userToResetPassword?.last_name}. 
+              The password must be at least 6 characters long.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="new-password">New Password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password"
+              minLength={6}
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading} onClick={() => setNewPassword("")}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetPassword}
+              disabled={isLoading || !newPassword || newPassword.length < 6}
+            >
+              {isLoading ? "Resetting..." : "Reset Password"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
