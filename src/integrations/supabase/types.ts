@@ -128,10 +128,9 @@ export type Database = {
       football_position: "QB" | "WR" | "C" | "DB" | "B" | "unassigned"
       metric_type:
         | "vertical_jump"
-        | "broad_jump"
+        | "jump_gather"
         | "40yd_dash"
-        | "3cone_drill"
-        | "shuffle_run"
+        | "shuttle_5_10_5"
         | "pushups_1min"
       position_type:
         | "quarterback"
@@ -270,10 +269,9 @@ export const Constants = {
       football_position: ["QB", "WR", "C", "DB", "B", "unassigned"],
       metric_type: [
         "vertical_jump",
-        "broad_jump",
+        "jump_gather",
         "40yd_dash",
-        "3cone_drill",
-        "shuffle_run",
+        "shuttle_5_10_5",
         "pushups_1min",
       ],
       position_type: [

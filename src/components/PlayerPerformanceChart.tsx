@@ -15,7 +15,7 @@ interface PlayerPerformanceChartProps {
 }
 
 type ZoomLevel = '1m' | '3m' | '6m' | '12m' | '18m' | '3y';
-type MetricType = 'vertical_jump' | 'broad_jump' | '40yd_dash' | '3cone_drill' | 'shuffle_run' | 'pushups_1min';
+type MetricType = 'vertical_jump' | 'jump_gather' | '40yd_dash' | 'shuttle_5_10_5' | 'pushups_1min';
 
 const ZOOM_LEVELS: Record<ZoomLevel, { label: string; months: number }> = {
   '1m': { label: '1 Month', months: 1 },
@@ -28,11 +28,10 @@ const ZOOM_LEVELS: Record<ZoomLevel, { label: string; months: number }> = {
 
 const METRICS: Record<MetricType, { label: string; unit: string }> = {
   vertical_jump: { label: 'Vertical Jump', unit: 'cm' },
-  broad_jump: { label: 'Broad Jump', unit: 'cm' },
+  jump_gather: { label: 'Jump w. Gather Step', unit: 'cm' },
   '40yd_dash': { label: '40-Yard Dash', unit: 's' },
-  '3cone_drill': { label: '3-Cone Drill', unit: 's' },
-  shuffle_run: { label: 'Shuffle Run', unit: 's' },
-  pushups_1min: { label: '1 Min AMRAP Pushups', unit: 'reps' },
+  shuttle_5_10_5: { label: '5-10-5 Shuttle', unit: 's' },
+  pushups_1min: { label: 'Push-Ups (1 Min AMRAP)', unit: 'reps' },
 };
 
 interface Player {

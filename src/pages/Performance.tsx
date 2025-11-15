@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, TrendingUp, Pencil, Trash2, Download } from "lucide-react";
+import { Plus, TrendingUp, Pencil, Trash2, Download, Users } from "lucide-react";
 import { ResponsiveDialog } from "@/components/ResponsiveDialog";
+import { BatchCreateDialog } from "@/components/BatchCreateDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
@@ -47,6 +48,7 @@ const Performance = () => {
   const [filterPlayer, setFilterPlayer] = useState<string>("all");
   const [filterPosition, setFilterPosition] = useState<string>("all");
   const [filterUnit, setFilterUnit] = useState<string>("all");
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -431,10 +433,16 @@ const Performance = () => {
         </div>
         <div className="flex flex-wrap gap-2">
           {(userRole === "coach" || userRole === "admin") && (
-            <Button variant="outline" onClick={handleExportCSV}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            <>
+              <Button variant="outline" onClick={handleExportCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+              <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
+                <Users className="h-4 w-4 mr-2" />
+                Batch Create
+              </Button>
+            </>
           )}
           {canAddEntry && (
             <ResponsiveDialog
@@ -725,6 +733,17 @@ const Performance = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Batch Create Dialog */}
+      {(userRole === "coach" || userRole === "admin") && (
+        <BatchCreateDialog
+          open={isBatchDialogOpen}
+          onOpenChange={setIsBatchDialogOpen}
+          players={players}
+          currentUserId={currentUserId}
+          onSuccess={fetchData}
+        />
+      )}
     </div>
   );
 };

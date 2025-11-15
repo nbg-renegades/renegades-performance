@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { User, Session } from "@supabase/supabase-js";
+import logo from "@/assets/logo.png";
 
 const MainLayout = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -83,6 +84,7 @@ const MainLayout = () => {
         <div className="flex-1 flex flex-col">
           <header className="h-14 flex items-center border-b border-border px-4 md:px-6 bg-card">
             <SidebarTrigger className="mr-2 md:mr-4" />
+            <img src={logo} alt="Logo" className="h-8 w-8 mr-3" />
             <h1 className="text-base md:text-lg font-semibold truncate">
               <span className="hidden sm:inline">Flag Football Performance Center</span>
               <span className="sm:hidden">Performance Center</span>
