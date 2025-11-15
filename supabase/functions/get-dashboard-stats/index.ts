@@ -50,8 +50,14 @@ Deno.serve(async (req) => {
 
     // Verify user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    if (userError || !user || !user.id) {
       throw new Error('Unauthorized');
+    }
+
+    // Validate UUID format to prevent database errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(user.id)) {
+      throw new Error('Invalid user ID format');
     }
 
     // Calculate date 30 days ago
