@@ -73,12 +73,39 @@ Deno.serve(async (req) => {
 
     // Fetch all performance data for normalization context
     // Get best daily entries (only one entry per player per metric per day)
-    const { data: allData, error: allDataError } = await supabase
-      .rpc('get_best_daily_entries');
+    // Use direct query with service role to bypass RLS for benchmark calculations
+    const { data: rawData, error: allDataError } = await supabase
+      .from('performance_entries')
+      .select('*')
+      .order('entry_date', { ascending: false });
 
     if (allDataError) {
       throw allDataError;
     }
+
+    // Manually filter to get best entry per player per metric per day
+    const bestEntriesMap = new Map<string, any>();
+    
+    rawData?.forEach(entry => {
+      const key = `${entry.player_id}-${entry.metric_type}-${entry.entry_date}`;
+      const existing = bestEntriesMap.get(key);
+      
+      if (!existing) {
+        bestEntriesMap.set(key, entry);
+      } else {
+        // For time metrics, lower is better; for others, higher is better
+        const isLowerBetter = lowerIsBetter.includes(entry.metric_type);
+        const shouldReplace = isLowerBetter 
+          ? entry.value < existing.value 
+          : entry.value > existing.value;
+        
+        if (shouldReplace) {
+          bestEntriesMap.set(key, entry);
+        }
+      }
+    });
+
+    const allData = Array.from(bestEntriesMap.values());
 
     const result: Array<{ metric_type: string; value: number }> = [];
 
