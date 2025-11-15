@@ -63,20 +63,18 @@ Deno.serve(async (req) => {
 
     const allMetrics = [
       'vertical_jump',
-      'broad_jump',
+      'jump_gather',
       '40yd_dash',
-      '3cone_drill',
-      'shuffle_run',
+      'shuttle_5_10_5',
       'pushups_1min'
     ];
 
-    const lowerIsBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'];
+    const lowerIsBetter = ['40yd_dash', 'shuttle_5_10_5'];
 
     // Fetch all performance data for normalization context
+    // Get best daily entries (only one entry per player per metric per day)
     const { data: allData, error: allDataError } = await supabase
-      .from('performance_entries')
-      .select('metric_type, value')
-      .order('entry_date', { ascending: false });
+      .rpc('get_best_daily_entries');
 
     if (allDataError) {
       throw allDataError;
@@ -122,27 +120,25 @@ Deno.serve(async (req) => {
     for (const metric of allMetrics) {
       const isLowerBetter = lowerIsBetter.includes(metric);
 
-      let query = supabase
-        .from('performance_entries')
-        .select('player_id, value, entry_date')
-        .eq('metric_type', metric)
-        .order('entry_date', { ascending: false });
+      // Use the RPC function to get best daily entries
+      const { data: entries, error: entriesError } = await supabase
+        .rpc('get_best_daily_entries');
 
-      // Apply player filter if needed
-      if (playerIds.length > 0) {
-        query = query.in('player_id', playerIds);
-      }
-
-      const { data: entries, error: entriesError } = await query;
 
       if (entriesError) {
         continue;
       }
 
-      if (entries && entries.length > 0) {
+      // Filter by metric and player IDs
+      let filteredEntries = (entries || []).filter((e: any) => e.metric_type === metric);
+      if (playerIds.length > 0) {
+        filteredEntries = filteredEntries.filter((e: any) => playerIds.includes(e.player_id));
+      }
+
+      if (filteredEntries && filteredEntries.length > 0) {
         // Get unique players with their latest value
         const playerLatest = new Map<string, number>();
-        entries.forEach((entry: any) => {
+        filteredEntries.forEach((entry: any) => {
           if (!playerLatest.has(entry.player_id)) {
             playerLatest.set(entry.player_id, entry.value);
           }

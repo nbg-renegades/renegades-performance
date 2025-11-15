@@ -135,25 +135,42 @@ export function usePerformanceComparison({
   }
 
   async function fetchLatestPlayerMetrics(playerId: string): Promise<MetricData[]> {
-    const metrics = getAllMetricTypes();
-    const result: MetricData[] = [];
+    try {
+      // Get best daily entries for this player
+      const { data: bestEntries, error } = await supabase
+        .rpc('get_best_daily_entries');
 
-    for (const metric of metrics) {
-      const { data } = await supabase
-        .from('performance_entries')
-        .select('metric_type, value')
-        .eq('player_id', playerId)
-        .eq('metric_type', metric)
-        .order('entry_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        result.push(data as MetricData);
+      if (error) {
+        console.error('Error fetching player metrics:', error);
+        return [];
       }
-    }
 
-    return result;
+      if (!bestEntries || bestEntries.length === 0) {
+        return [];
+      }
+
+      // Filter for this player and get the most recent entry for each metric
+      const playerEntries = bestEntries.filter((e: any) => e.player_id === playerId);
+      const latestByMetric = new Map<string, MetricData>();
+      
+      playerEntries.forEach((entry: any) => {
+        const existing = latestByMetric.get(entry.metric_type);
+        const currentDate = entry.entry_date;
+        const existingDate = existing ? (existing as any).entry_date : null;
+        
+        if (!existing || currentDate > existingDate) {
+          latestByMetric.set(entry.metric_type, {
+            metric_type: entry.metric_type,
+            value: entry.value,
+          } as MetricData);
+        }
+      });
+
+      return Array.from(latestByMetric.values());
+    } catch (error) {
+      console.error('Error fetching player metrics:', error);
+      return [];
+    }
   }
 
 
