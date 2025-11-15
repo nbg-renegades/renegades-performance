@@ -115,6 +115,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_best_daily_entries: {
+        Args: never
+        Returns: {
+          created_at: string
+          created_by: string
+          entry_date: string
+          id: string
+          metric_type: Database["public"]["Enums"]["metric_type"]
+          player_id: string
+          unit: string
+          value: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

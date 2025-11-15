@@ -108,46 +108,57 @@ const Performance = () => {
       }
     }
 
-    // Fetch performance entries
-    const { data: entriesData } = await supabase
-      .from("performance_entries")
-      .select("*")
-      .order("entry_date", { ascending: false })
-      .limit(20);
+    // Fetch performance entries using best daily entries RPC
+    // This ensures only the best entry per metric per day per player is shown
+    const { data: bestDailyData, error: bestDailyError } = await supabase
+      .rpc('get_best_daily_entries');
 
-    // Fetch player names and positions separately
-    if (entriesData) {
-      const playerIds = [...new Set(entriesData.map(e => e.player_id))];
-      
-      // Batch fetch profiles and positions together
-      const [profilesResult, positionsResult] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, first_name, last_name")
-          .in("id", playerIds),
-        supabase
-          .from("player_positions")
-          .select("player_id, position")
-          .in("player_id", playerIds)
-      ]);
-
-      const profilesMap = new Map(profilesResult.data?.map(p => [p.id, p]));
-      const positionsMap = new Map<string, FootballPosition>();
-      
-      positionsResult.data?.forEach(pos => {
-        positionsMap.set(pos.player_id, pos.position as FootballPosition);
+    if (bestDailyError) {
+      console.error("Error fetching entries:", bestDailyError);
+      toast({
+        title: "Error",
+        description: "Failed to load performance entries",
+        variant: "destructive",
       });
-      
-      const entriesWithProfiles = entriesData.map(entry => ({
-        ...entry,
-        player: {
-          ...profilesMap.get(entry.player_id),
-          position: positionsMap.get(entry.player_id),
-        },
-      }));
-
-      setEntries(entriesWithProfiles as any);
+      return;
     }
+
+    let entriesData = bestDailyData || [];
+
+    // Filter by player role (players see only their own)
+    if (userRole === "player") {
+      entriesData = entriesData.filter((e: any) => e.player_id === currentUserId);
+    }
+
+    // Fetch player names for all entries
+    const playerIdsToFetch = [...new Set(entriesData.map((e: any) => e.player_id))];
+    const { data: playerProfiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', playerIdsToFetch);
+
+    const playerMap = new Map(
+      (playerProfiles || []).map(p => [p.id, p])
+    );
+
+    // Transform entries to match our interface
+    const transformedEntries: PerformanceEntry[] = (entriesData || []).map((entry: any) => {
+      const profile = playerMap.get(entry.player_id);
+      return {
+        id: entry.id,
+        entry_date: entry.entry_date,
+        metric_type: entry.metric_type,
+        value: entry.value,
+        unit: entry.unit,
+        player_id: entry.player_id,
+        player: profile ? {
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+        } : undefined,
+      };
+    });
+
+    setEntries(transformedEntries);
   };
 
   const handleAddEntry = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -181,10 +192,9 @@ const Performance = () => {
 
     const unitMap: Record<string, string> = {
       "vertical_jump": "cm",
-      "broad_jump": "cm",
+      "jump_gather": "cm",
       "40yd_dash": "s",
-      "3cone_drill": "s",
-      "shuffle_run": "s",
+      "shuttle_5_10_5": "s",
       "pushups_1min": "reps",
     };
 
@@ -316,11 +326,10 @@ const Performance = () => {
 
   const metricDisplayNames: Record<string, string> = {
     "vertical_jump": "Vertical Jump [cm]",
-    "broad_jump": "Broad Jump [cm]",
+    "jump_gather": "Jump w. Gather Step [cm]",
     "40yd_dash": "40-Yard Dash [s]",
-    "3cone_drill": "3-Cone Drill [s]",
-    "shuffle_run": "Shuffle Run [s]",
-    "pushups_1min": "1 Min AMRAP Pushups [reps]",
+    "shuttle_5_10_5": "5-10-5 Shuttle [s]",
+    "pushups_1min": "Push-Ups (1 Min AMRAP) [reps]",
   };
 
   const canAddEntry = userRole === "coach" || userRole === "admin" || userRole === "player";
@@ -508,7 +517,7 @@ const Performance = () => {
                     id="value"
                     name="value"
                     type="number"
-                    step={(["40yd_dash", "3cone_drill", "shuffle_run"].includes(selectedMetric) ? 0.01 : 1) as any}
+                    step={(["40yd_dash", "shuttle_5_10_5"].includes(selectedMetric) ? 0.01 : 1) as any}
                     min={0}
                     required
                   />
