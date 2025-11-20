@@ -616,19 +616,6 @@ const Performance = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex-1">
-                  <Label htmlFor="filter-unit" className="text-sm mb-2 block">Filter by Unit</Label>
-                  <Select value={filterUnit} onValueChange={setFilterUnit}>
-                    <SelectTrigger id="filter-unit" className="bg-background">
-                      <SelectValue placeholder="All Units" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      <SelectItem value="all">All Units</SelectItem>
-                      <SelectItem value="offense">Offense</SelectItem>
-                      <SelectItem value="defense">Defense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </>
             )}
           </div>
