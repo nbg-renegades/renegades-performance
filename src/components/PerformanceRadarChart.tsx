@@ -39,7 +39,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
   const [isCoach, setIsCoach] = useState(false);
 
-  const { data: comparisonData, isLoading, error, refetch } = usePerformanceComparison({
+  const { data: comparisonData, isLoading, error, refetch, positionLabel } = usePerformanceComparison({
     mode,
     selectedPosition,
     currentUserId: selectedPlayerId || currentUserId,
@@ -175,7 +175,9 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
           <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'} h-auto`}>
             <TabsTrigger value="best" className="px-2 py-2 data-[state=active]:bg-background">Best Overall</TabsTrigger>
-            <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background">My Position</TabsTrigger>
+            <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background">
+              {positionLabel || 'My Position'}
+            </TabsTrigger>
             {(isCoach || playerUnit === 'offense') && (
               <TabsTrigger value="offense" className="px-2 py-2 data-[state=active]:bg-background">Offense</TabsTrigger>
             )}
