@@ -217,7 +217,8 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
               </TabsTrigger>
             ) : null}
             {/* Show compare tab only for coaches who are NOT players */}
-            {isCoach && !isCoachAndPlayer && (
+            {/* Compare Tab - Available for all coaches and admins */}
+            {isCoach && (
               <TabsTrigger value="compare" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
                 Compare
               </TabsTrigger>
