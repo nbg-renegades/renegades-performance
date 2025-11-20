@@ -172,17 +172,19 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const orderedKeys = [...referenceKeys, ...playerKeys]; // Reference first, player second
   
   // Get player names for compare mode color assignment
+  const player1Name = mode === 'compare' ? dataKeys.find(k => !k.includes('Best')) || '' : '';
+  const player2Name = mode === 'compare' ? dataKeys.find(k => !k.includes('Best') && k !== player1Name) || '' : '';
   const playerNames = {
-    player1: mode === 'compare' ? dataKeys.find(k => !k.includes('Best') && k !== dataKeys[0]) || '' : '',
-    player2: mode === 'compare' ? dataKeys.find(k => !k.includes('Best') && k !== dataKeys[0] && k !== playerNames.player1) || '' : ''
+    player1: player1Name,
+    player2: player2Name
   };
   
   // In compare mode, order should be: baseline, player1, player2
   const compareOrderedKeys = mode === 'compare' 
     ? [
         ...dataKeys.filter(k => k.includes('Best')), // Baseline first
-        playerNames.player1,
-        playerNames.player2
+        player1Name,
+        player2Name
       ].filter(Boolean)
     : orderedKeys;
 
