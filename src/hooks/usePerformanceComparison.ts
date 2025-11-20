@@ -160,6 +160,12 @@ export function usePerformanceComparison({
           player2: player2Name
         });
 
+        if (import.meta.env.DEV) {
+          console.log(`Compare Mode - ${player1Name} raw data:`, player1Data);
+          console.log(`Compare Mode - ${player2Name} raw data:`, player2Data);
+          console.log('Baseline allData length:', allData.length);
+        }
+
         // Add player 1 (Gold)
         if (player1Data.length > 0) {
           result[player1Name] = normalizeMetrics(player1Data, allData as MetricData[]);
