@@ -44,7 +44,7 @@ function getStrokeWidth(key: string): number {
 
 export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRadarChartProps) {
   const [mode, setMode] = useState<ComparisonMode>('best');
-  const [selectedPosition, setSelectedPosition] = useState<string>('QB');
+  const [selectedPosition, setSelectedPosition] = useState<string>('');
   const [playerUnit, setPlayerUnit] = useState<'offense' | 'defense' | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
@@ -91,6 +91,8 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
 
   async function fetchPlayerUnit(playerId?: string) {
     const targetId = playerId || currentUserId;
+    if (!targetId) return;
+    
     const { data } = await supabase
       .from('player_positions')
       .select('position')
@@ -101,6 +103,8 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       const position = data.position as FootballPosition;
       const unit = getPositionUnit(position);
       setPlayerUnit(unit);
+      // Set the selected position to the player's actual position
+      setSelectedPosition(position);
     } else {
       setPlayerUnit(null);
     }
@@ -140,11 +144,13 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       if (position) {
         const unit = getPositionUnit(position);
         setPlayerUnit(unit);
+        setSelectedPosition(position);
       }
     } else {
       // Default to empty for non-player coaches
       setSelectedPlayerId('');
       setPlayerUnit(null);
+      setSelectedPosition('');
     }
   }
 
