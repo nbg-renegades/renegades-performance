@@ -43,10 +43,6 @@ const Dashboard = () => {
     }
   }, [stats.userId]);
 
-  useEffect(() => {
-    fetchTeamBestPerformances();
-  }, []);
-
   const fetchDashboardData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -67,7 +63,7 @@ const Dashboard = () => {
     const profile = profileResult.data;
     const roles = (rolesResult.data || []).map((r: any) => r.role);
 
-    // Fetch aggregated stats from backend
+    // Fetch aggregated stats and team bests from backend
     const { data: aggregatedStats, error: statsError } = await supabase.functions.invoke(
       'get-dashboard-stats',
       {
@@ -89,54 +85,16 @@ const Dashboard = () => {
       userName: profile ? `${profile.first_name} ${profile.last_name}` : "",
       userId: user.id,
     });
+
+    // Set team best performances from backend response
+    if (aggregatedStats?.teamBestAllTime) {
+      setTeamBestAllTime(aggregatedStats.teamBestAllTime);
+    }
+    if (aggregatedStats?.teamBestSixMonths) {
+      setTeamBestSixMonths(aggregatedStats.teamBestSixMonths);
+    }
   };
 
-  const fetchTeamBestPerformances = async () => {
-    const allMetrics = getAllMetricTypes();
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    // Batch query: Fetch all entries at once instead of looping
-    const { data: allTimeData } = await supabase
-      .from('performance_entries')
-      .select('metric_type, value')
-      .in('metric_type', allMetrics);
-
-    const { data: sixMonthData } = await supabase
-      .from('performance_entries')
-      .select('metric_type, value')
-      .in('metric_type', allMetrics)
-      .gte('entry_date', sixMonthsAgo.toISOString().split('T')[0]);
-
-    // Process results client-side to find best values per metric
-    const allTimeResults: TeamBestMetric[] = [];
-    const sixMonthResults: TeamBestMetric[] = [];
-
-    allMetrics.forEach(metric => {
-      const isLowerBetter = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'].includes(metric);
-      
-      // All-time best
-      const metricEntries = allTimeData?.filter(e => e.metric_type === metric) || [];
-      if (metricEntries.length > 0) {
-        const bestValue = isLowerBetter
-          ? Math.min(...metricEntries.map(e => e.value))
-          : Math.max(...metricEntries.map(e => e.value));
-        allTimeResults.push({ metric, value: bestValue });
-      }
-
-      // Last 6 months best
-      const recentMetricEntries = sixMonthData?.filter(e => e.metric_type === metric) || [];
-      if (recentMetricEntries.length > 0) {
-        const bestValue = isLowerBetter
-          ? Math.min(...recentMetricEntries.map(e => e.value))
-          : Math.max(...recentMetricEntries.map(e => e.value));
-        sixMonthResults.push({ metric, value: bestValue });
-      }
-    });
-
-    setTeamBestAllTime(allTimeResults);
-    setTeamBestSixMonths(sixMonthResults);
-  };
 
   const fetchMetricStatuses = async () => {
     const allMetrics = getAllMetricTypes();

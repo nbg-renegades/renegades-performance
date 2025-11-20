@@ -5,10 +5,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const LOWER_IS_BETTER = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'];
+
 interface DashboardStats {
   totalPlayers: number;
   teamRecentEntries: number;
   userRecentEntries: number;
+  teamBestAllTime: Array<{ metric: string; value: number }>;
+  teamBestSixMonths: Array<{ metric: string; value: number }>;
 }
 
 Deno.serve(async (req) => {
@@ -60,13 +64,17 @@ Deno.serve(async (req) => {
       throw new Error('Invalid user ID format');
     }
 
-    // Calculate date 30 days ago
+    // Calculate dates
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const dateFilter = thirtyDaysAgo.toISOString().split('T')[0];
 
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthFilter = sixMonthsAgo.toISOString().split('T')[0];
+
     // Run all queries in parallel using admin client
-    const [playersResult, teamEntriesResult, userEntriesResult] = await Promise.all([
+    const [playersResult, teamEntriesResult, userEntriesResult, allTimeEntriesResult, sixMonthEntriesResult] = await Promise.all([
       // Count total players
       supabaseAdmin
         .from('user_roles')
@@ -85,6 +93,17 @@ Deno.serve(async (req) => {
         .select('*', { count: 'exact', head: true })
         .eq('player_id', user.id)
         .gte('entry_date', dateFilter),
+
+      // Get all performance entries for all-time best
+      supabaseAdmin
+        .from('performance_entries')
+        .select('metric_type, value'),
+
+      // Get performance entries for last 6 months
+      supabaseAdmin
+        .from('performance_entries')
+        .select('metric_type, value')
+        .gte('entry_date', sixMonthFilter),
     ]);
 
     if (playersResult.error) {
@@ -99,10 +118,50 @@ Deno.serve(async (req) => {
       throw userEntriesResult.error;
     }
 
+    if (allTimeEntriesResult.error) {
+      throw allTimeEntriesResult.error;
+    }
+
+    if (sixMonthEntriesResult.error) {
+      throw sixMonthEntriesResult.error;
+    }
+
+    // Process team best values
+    const processTeamBest = (entries: any[]) => {
+      const metricMap = new Map<string, number>();
+      
+      entries?.forEach(entry => {
+        const metric = entry.metric_type;
+        const value = entry.value;
+        const isLowerBetter = LOWER_IS_BETTER.includes(metric);
+        
+        const currentBest = metricMap.get(metric);
+        if (currentBest === undefined) {
+          metricMap.set(metric, value);
+        } else {
+          if (isLowerBetter) {
+            metricMap.set(metric, Math.min(currentBest, value));
+          } else {
+            metricMap.set(metric, Math.max(currentBest, value));
+          }
+        }
+      });
+
+      return Array.from(metricMap.entries()).map(([metric, value]) => ({
+        metric,
+        value
+      }));
+    };
+
+    const teamBestAllTime = processTeamBest(allTimeEntriesResult.data || []);
+    const teamBestSixMonths = processTeamBest(sixMonthEntriesResult.data || []);
+
     const stats: DashboardStats = {
       totalPlayers: playersResult.count || 0,
       teamRecentEntries: teamEntriesResult.count || 0,
       userRecentEntries: userEntriesResult.count || 0,
+      teamBestAllTime,
+      teamBestSixMonths,
     };
 
     return new Response(
