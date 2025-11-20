@@ -142,6 +142,7 @@ Deno.serve(async (req) => {
       }
 
       playerIds = positionPlayers?.map(p => p.player_id) || [];
+      console.log(`Position mode: ${playerPosition}, found ${playerIds.length} players`);
     } else if (mode === 'offense' || mode === 'defense') {
       // Get players in this unit
       const offensePositions = ['QB', 'WR', 'C'];
@@ -158,6 +159,7 @@ Deno.serve(async (req) => {
       }
 
       playerIds = unitPlayers?.map(p => p.player_id) || [];
+      console.log(`${mode} mode: found ${playerIds.length} players`);
     }
     // For 'best' mode, we don't filter by player (include all)
 
@@ -165,27 +167,15 @@ Deno.serve(async (req) => {
     let filteredAllData = allData;
     if (playerIds.length > 0) {
       filteredAllData = allData.filter((entry: any) => playerIds.includes(entry.player_id));
+      console.log(`Filtered allData from ${allData.length} to ${filteredAllData.length} entries for ${playerIds.length} players`);
     }
 
-
-    // Calculate best for each metric
+    // Calculate best for each metric using the already-processed allData
     for (const metric of allMetrics) {
       const isLowerBetter = lowerIsBetter.includes(metric);
 
-      // Use the RPC function to get best daily entries
-      const { data: entries, error: entriesError } = await supabase
-        .rpc('get_best_daily_entries');
-
-
-      if (entriesError) {
-        continue;
-      }
-
-      // Filter by metric and player IDs
-      let filteredEntries = (entries || []).filter((e: any) => e.metric_type === metric);
-      if (playerIds.length > 0) {
-        filteredEntries = filteredEntries.filter((e: any) => playerIds.includes(e.player_id));
-      }
+      // Filter allData (which is already best-daily) by metric and player IDs
+      let filteredEntries = filteredAllData.filter((e: any) => e.metric_type === metric);
 
       console.log(`Metric: ${metric}, Mode: ${mode}, Filtered entries count:`, filteredEntries.length);
 
