@@ -161,6 +161,13 @@ Deno.serve(async (req) => {
     }
     // For 'best' mode, we don't filter by player (include all)
 
+    // Filter allData based on mode to ensure normalization uses correct context
+    let filteredAllData = allData;
+    if (playerIds.length > 0) {
+      filteredAllData = allData.filter((entry: any) => playerIds.includes(entry.player_id));
+    }
+
+
     // Calculate best for each metric
     for (const metric of allMetrics) {
       const isLowerBetter = lowerIsBetter.includes(metric);
@@ -180,6 +187,8 @@ Deno.serve(async (req) => {
         filteredEntries = filteredEntries.filter((e: any) => playerIds.includes(e.player_id));
       }
 
+      console.log(`Metric: ${metric}, Mode: ${mode}, Filtered entries count:`, filteredEntries.length);
+
       if (filteredEntries && filteredEntries.length > 0) {
         // Get unique players with their latest value
         const playerLatest = new Map<string, number>();
@@ -195,12 +204,19 @@ Deno.serve(async (req) => {
           ? Math.min(...values)
           : Math.max(...values);
         
+        console.log(`Metric: ${metric}, Best value:`, bestValue, 'from', values.length, 'players');
+        
         result.push({ metric_type: metric, value: bestValue });
       }
     }
 
+    console.log('Final benchmark results:', result);
+    console.log('Mode:', mode, 'Player position:', playerPosition);
+    console.log('Number of filtered players:', playerIds.length);
+    console.log('Filtered allData entries:', filteredAllData.length, 'vs original:', allData.length);
+
     return new Response(
-      JSON.stringify({ benchmarks: result, allData, playerPosition }),
+      JSON.stringify({ benchmarks: result, allData: filteredAllData, playerPosition }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
