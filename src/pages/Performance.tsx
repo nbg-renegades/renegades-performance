@@ -130,20 +130,31 @@ const Performance = () => {
       entriesData = entriesData.filter((e: any) => e.player_id === currentUserId);
     }
 
-    // Fetch player names for all entries
+    // Fetch player names and positions for all entries
     const playerIdsToFetch = [...new Set(entriesData.map((e: any) => e.player_id))];
-    const { data: playerProfiles } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name')
-      .in('id', playerIdsToFetch);
+    const [playerProfilesResult, playerPositionsResult] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', playerIdsToFetch),
+      supabase
+        .from('player_positions')
+        .select('player_id, position')
+        .in('player_id', playerIdsToFetch)
+    ]);
 
     const playerMap = new Map(
-      (playerProfiles || []).map(p => [p.id, p])
+      (playerProfilesResult.data || []).map(p => [p.id, p])
+    );
+
+    const positionMap = new Map(
+      (playerPositionsResult.data || []).map(p => [p.player_id, p.position])
     );
 
     // Transform entries to match our interface
     const transformedEntries: PerformanceEntry[] = (entriesData || []).map((entry: any) => {
       const profile = playerMap.get(entry.player_id);
+      const position = positionMap.get(entry.player_id);
       return {
         id: entry.id,
         entry_date: entry.entry_date,
@@ -154,6 +165,7 @@ const Performance = () => {
         player: profile ? {
           first_name: profile.first_name,
           last_name: profile.last_name,
+          position: position as FootballPosition,
         } : undefined,
       };
     });
@@ -635,6 +647,11 @@ const Performance = () => {
                   <div className="flex-1">
                     <p className="font-semibold text-sm sm:text-base">
                       {entry.player?.first_name} {entry.player?.last_name}
+                      {entry.player?.position && entry.player.position !== 'unassigned' && (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          ({POSITION_LABELS[entry.player.position]})
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs sm:text-sm text-muted-foreground">
                       {metricDisplayNames[entry.metric_type]}

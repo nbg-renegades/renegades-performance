@@ -86,8 +86,10 @@ export function normalizeMetrics(
         normalized = Math.max(0, Math.min(100, ((baseline - item.value) / range) * 100));
       }
     } else {
-      // For distance/reps: baseline (0) = best / 2, best performance (100) = best value
-      const baseline = bestValue / 2;
+      // For distance/reps: baseline (0) = best / divisor
+      // Push-ups use /5, others use /2
+      const divisor = item.metric_type === 'pushups_1min' ? 5 : 2;
+      const baseline = bestValue / divisor;
       const range = bestValue - baseline;
       
       if (range === 0) {

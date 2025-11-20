@@ -28,6 +28,7 @@ const Dashboard = () => {
     userRoles: [] as string[],
     userName: "",
     userId: "",
+    userPosition: "",
   });
   const [metricStatuses, setMetricStatuses] = useState<MetricStatus[]>([]);
   const [teamBestAllTime, setTeamBestAllTime] = useState<TeamBestMetric[]>([]);
@@ -47,8 +48,8 @@ const Dashboard = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Get user profile and roles in parallel
-    const [profileResult, rolesResult] = await Promise.all([
+    // Get user profile, roles, and position in parallel
+    const [profileResult, rolesResult, positionResult] = await Promise.all([
       supabase
         .from("profiles")
         .select("first_name, last_name")
@@ -57,11 +58,17 @@ const Dashboard = () => {
       supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
+        .eq("user_id", user.id),
+      supabase
+        .from("player_positions")
+        .select("position")
+        .eq("player_id", user.id)
+        .maybeSingle()
     ]);
 
     const profile = profileResult.data;
     const roles = (rolesResult.data || []).map((r: any) => r.role);
+    const position = positionResult.data?.position || "unassigned";
 
     // Fetch aggregated stats and team bests from backend
     const { data: aggregatedStats, error: statsError } = await supabase.functions.invoke(
@@ -84,6 +91,7 @@ const Dashboard = () => {
       userRoles: roles,
       userName: profile ? `${profile.first_name} ${profile.last_name}` : "",
       userId: user.id,
+      userPosition: position,
     });
 
     // Set team best performances from backend response
@@ -199,6 +207,12 @@ const Dashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold text-primary">{displayRoles}</div>
             <p className="text-xs text-muted-foreground mt-1">Access level{stats.userRoles.length > 1 ? 's' : ''}</p>
+            {stats.userPosition && stats.userPosition !== "unassigned" && (
+              <div className="mt-3 pt-3 border-t border-border/50">
+                <div className="text-sm font-medium text-muted-foreground">Position</div>
+                <div className="text-lg font-bold text-primary mt-1">{stats.userPosition}</div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
