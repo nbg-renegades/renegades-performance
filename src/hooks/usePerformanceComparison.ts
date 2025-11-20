@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeMetrics, getAllMetricTypes, type MetricData, type NormalizedMetric } from '@/lib/performanceUtils';
 
-export type ComparisonMode = 'best' | 'position' | 'offense' | 'defense';
+export type ComparisonMode = 'best' | 'position' | 'offense' | 'defense' | 'compare';
 
 export interface ComparisonData {
   [key: string]: NormalizedMetric[];
@@ -22,13 +22,19 @@ interface UsePerformanceComparisonProps {
   selectedPosition?: string;
   currentUserId: string;
   userRole: string;
+  comparePlayer1Id?: string;
+  comparePlayer2Id?: string;
+  compareBaseline?: 'best' | 'offense' | 'defense';
 }
 
 export function usePerformanceComparison({
   mode,
   selectedPosition,
   currentUserId,
-  userRole
+  userRole,
+  comparePlayer1Id,
+  comparePlayer2Id,
+  compareBaseline
 }: UsePerformanceComparisonProps) {
   const [data, setData] = useState<ComparisonData>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +44,7 @@ export function usePerformanceComparison({
 
   useEffect(() => {
     fetchComparisonData();
-  }, [mode, selectedPosition, currentUserId]);
+  }, [mode, selectedPosition, currentUserId, comparePlayer1Id, comparePlayer2Id, compareBaseline]);
 
   // Set up realtime subscription for performance entries
   useEffect(() => {
@@ -61,13 +67,102 @@ export function usePerformanceComparison({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [mode, selectedPosition, currentUserId]);
+  }, [mode, selectedPosition, currentUserId, comparePlayer1Id, comparePlayer2Id, compareBaseline]);
 
   async function fetchComparisonData() {
     setIsLoading(true);
     setError(null);
     try {
-      // Guard against empty player IDs
+      // For compare mode, handle differently
+      if (mode === 'compare') {
+        if (!comparePlayer1Id || !comparePlayer2Id) {
+          setError('Please select two players to compare');
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch data for both players
+        const player1Data = await fetchLatestPlayerMetrics(comparePlayer1Id);
+        const player2Data = await fetchLatestPlayerMetrics(comparePlayer2Id);
+
+        // Fetch benchmark based on compareBaseline
+        const baselineMode = compareBaseline || 'best';
+        const { data: benchmarkResponse, error: benchmarkError } = await supabase.functions.invoke(
+          'get-performance-benchmarks',
+          {
+            body: {
+              mode: baselineMode,
+              position: selectedPosition,
+              currentPlayerId: comparePlayer1Id
+            }
+          }
+        );
+
+        if (benchmarkError) {
+          console.error('Error fetching benchmarks:', benchmarkError);
+          setError('Failed to load benchmark data. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+
+        const { benchmarks, allData } = benchmarkResponse;
+        
+        if (!allData) {
+          setError('No performance data available');
+          setIsLoading(false);
+          return;
+        }
+
+        setAllMetricsData(allData as MetricData[]);
+
+        const result: ComparisonData = {};
+
+        // Add benchmark
+        if (benchmarks && benchmarks.length > 0) {
+          let benchmarkLabel = '';
+          switch (baselineMode) {
+            case 'best':
+              benchmarkLabel = 'Best Overall';
+              break;
+            case 'offense':
+              benchmarkLabel = 'Best Offense';
+              break;
+            case 'defense':
+              benchmarkLabel = 'Best Defense';
+              break;
+          }
+          result[benchmarkLabel] = normalizeMetrics(benchmarks, allData as MetricData[]);
+        }
+
+        // Add player 1 (Gold) - fetch name from profiles
+        if (player1Data.length > 0) {
+          const { data: profile1 } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', comparePlayer1Id)
+            .single();
+          const player1Name = profile1 ? `${profile1.first_name} ${profile1.last_name}` : 'Player 1';
+          result[player1Name] = normalizeMetrics(player1Data, allData as MetricData[]);
+        }
+
+        // Add player 2 (Silver) - fetch name from profiles
+        if (player2Data.length > 0) {
+          const { data: profile2 } = await supabase
+            .from('profiles')
+            .select('first_name, last_name')
+            .eq('id', comparePlayer2Id)
+            .single();
+          const player2Name = profile2 ? `${profile2.first_name} ${profile2.last_name}` : 'Player 2';
+          result[player2Name] = normalizeMetrics(player2Data, allData as MetricData[]);
+        }
+
+        setData(result);
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
+      // Guard against empty player IDs for non-compare modes
       if (!currentUserId || currentUserId.trim() === '') {
         console.warn('No valid player ID provided');
         setError('No player ID provided');

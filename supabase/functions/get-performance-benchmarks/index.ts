@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const requestSchema = z.object({
-  mode: z.enum(['best', 'position', 'offense', 'defense']),
+  mode: z.enum(['best', 'position', 'offense', 'defense', 'compare']),
   position: z.enum(['QB', 'WR', 'C', 'DB', 'B', 'unassigned']).optional(),
   currentPlayerId: z.string().optional(),
 });
