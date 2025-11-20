@@ -279,9 +279,10 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
             <h4 className="font-semibold text-foreground">How the 0-100 Scale Works</h4>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
               <li><strong>100 = Best performance</strong> (fastest time or highest distance/reps)</li>
-              <li><strong>0 = Baseline</strong> (1.4× the best time for speed; half the best for distance/reps)</li>
+              <li><strong>0 = Baseline:</strong> 1.4× the best time for speed; 1/2 best for jumps; 1/5 best for push-ups</li>
               <li><strong>Time metrics:</strong> If best is 5s, then 5s=100, 7s=0</li>
-              <li><strong>Distance/Reps:</strong> If best is 200cm, then 200cm=100, 100cm=0</li>
+              <li><strong>Jumps:</strong> If best is 200cm, then 200cm=100, 100cm=0</li>
+              <li><strong>Push-ups:</strong> If best is 100 reps, then 100=100, 20=0</li>
             </ul>
           </div>
         </div>
