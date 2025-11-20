@@ -160,28 +160,14 @@ export function usePerformanceComparison({
           player2: player2Name
         });
 
-        if (import.meta.env.DEV) {
-          console.log(`Compare Mode - ${player1Name} raw data:`, player1Data);
-          console.log(`Compare Mode - ${player2Name} raw data:`, player2Data);
-          console.log('Baseline allData length:', allData.length);
-        }
-
         // Add player 1 (Gold)
         if (player1Data.length > 0) {
-          const normalized1 = normalizeMetrics(player1Data, allData as MetricData[]);
-          result[player1Name] = normalized1;
-          if (import.meta.env.DEV) {
-            console.log(`${player1Name} normalized:`, normalized1);
-          }
+          result[player1Name] = normalizeMetrics(player1Data, allData as MetricData[]);
         }
 
         // Add player 2 (Silver)
         if (player2Data.length > 0) {
-          const normalized2 = normalizeMetrics(player2Data, allData as MetricData[]);
-          result[player2Name] = normalized2;
-          if (import.meta.env.DEV) {
-            console.log(`${player2Name} normalized:`, normalized2);
-          }
+          result[player2Name] = normalizeMetrics(player2Data, allData as MetricData[]);
         }
 
         setData(result);
