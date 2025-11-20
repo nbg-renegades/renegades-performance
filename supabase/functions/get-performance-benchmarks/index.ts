@@ -9,6 +9,7 @@ const corsHeaders = {
 const requestSchema = z.object({
   mode: z.enum(['best', 'position', 'offense', 'defense']),
   position: z.enum(['QB', 'WR', 'C', 'DB', 'B', 'unassigned']).optional(),
+  currentPlayerId: z.string().optional(),
 });
 
 Deno.serve(async (req) => {
@@ -56,7 +57,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { mode, position } = validation.data;
+    const { mode, position, currentPlayerId } = validation.data;
     
     // Use service role client to bypass RLS for aggregation
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -112,13 +113,29 @@ Deno.serve(async (req) => {
 
     // Determine which players to include based on mode
     let playerIds: string[] = [];
+    let playerPosition: string | null = null;
 
-    if (mode === 'position' && position) {
+    // If no position is provided but we have currentPlayerId, fetch their position
+    if (mode === 'position' && !position && currentPlayerId) {
+      const { data: posData } = await supabase
+        .from('player_positions')
+        .select('position')
+        .eq('player_id', currentPlayerId)
+        .maybeSingle();
+      
+      if (posData) {
+        playerPosition = posData.position;
+      }
+    } else if (mode === 'position' && position) {
+      playerPosition = position;
+    }
+
+    if (mode === 'position' && playerPosition) {
       // Get players with this position
       const { data: positionPlayers, error: posError } = await supabase
         .from('player_positions')
         .select('player_id')
-        .eq('position', position);
+        .eq('position', playerPosition);
 
       if (posError) {
         throw posError;
@@ -183,7 +200,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ benchmarks: result, allData }),
+      JSON.stringify({ benchmarks: result, allData, playerPosition }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }

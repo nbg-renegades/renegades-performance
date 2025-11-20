@@ -8,6 +8,15 @@ export interface ComparisonData {
   [key: string]: NormalizedMetric[];
 }
 
+export interface UsePerformanceComparisonResult {
+  data: ComparisonData;
+  isLoading: boolean;
+  error: string | null;
+  allMetricsData: MetricData[];
+  refetch: () => void;
+  positionLabel?: string;
+}
+
 interface UsePerformanceComparisonProps {
   mode: ComparisonMode;
   selectedPosition?: string;
@@ -25,6 +34,7 @@ export function usePerformanceComparison({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [allMetricsData, setAllMetricsData] = useState<MetricData[]>([]);
+  const [positionLabel, setPositionLabel] = useState<string | undefined>();
 
   useEffect(() => {
     fetchComparisonData();
@@ -74,7 +84,8 @@ export function usePerformanceComparison({
         {
           body: {
             mode,
-            position: selectedPosition
+            position: selectedPosition,
+            currentPlayerId: currentUserId
           }
         }
       );
@@ -86,7 +97,7 @@ export function usePerformanceComparison({
         return;
       }
 
-      const { benchmarks, allData } = benchmarkResponse;
+      const { benchmarks, allData, playerPosition } = benchmarkResponse;
       
       if (!allData) {
         setError('No performance data available');
@@ -111,7 +122,10 @@ export function usePerformanceComparison({
             benchmarkLabel = 'Best Overall';
             break;
           case 'position':
-            benchmarkLabel = `Best ${selectedPosition}`;
+            // Use the position from backend response
+            const posLabel = playerPosition || selectedPosition;
+            benchmarkLabel = `Best ${posLabel}`;
+            setPositionLabel(posLabel);
             break;
           case 'offense':
             benchmarkLabel = 'Best Offense';
@@ -133,6 +147,15 @@ export function usePerformanceComparison({
       setIsLoading(false);
     }
   }
+
+  return {
+    data,
+    isLoading,
+    error,
+    allMetricsData,
+    refetch: fetchComparisonData,
+    positionLabel
+  };
 
   async function fetchLatestPlayerMetrics(playerId: string): Promise<MetricData[]> {
     try {
