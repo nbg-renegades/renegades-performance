@@ -19,15 +19,15 @@ const PLAYER_COLOR = 'hsl(var(--primary))'; // Gold color for current player
 const COMPARISON_COLOR = 'hsl(var(--muted-foreground))'; // Gray for comparisons
 const SILVER_COLOR = '#C0C0C0'; // Silver for player 2 in compare mode
 
-function getLineColor(key: string, mode: ComparisonMode, index: number, isCompareMode: boolean): string {
+function getLineColor(key: string, mode: ComparisonMode, playerNames: { player1: string; player2: string }): string {
   // In compare mode, assign specific colors
-  if (isCompareMode) {
-    // Check if key contains player names (not benchmark)
+  if (mode === 'compare') {
+    // Baseline is always gray
     if (key.includes('Best')) return COMPARISON_COLOR;
-    // First player (Gold)
-    if (index === 1) return PLAYER_COLOR;
-    // Second player (Silver)
-    if (index === 2) return SILVER_COLOR;
+    // Player 1 is Gold
+    if (key === playerNames.player1) return PLAYER_COLOR;
+    // Player 2 is Silver
+    if (key === playerNames.player2) return SILVER_COLOR;
   }
   
   // Current player is always gold in non-compare modes
@@ -170,6 +170,21 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const referenceKeys = dataKeys.filter(key => key !== 'You');
   const playerKeys = dataKeys.filter(key => key === 'You');
   const orderedKeys = [...referenceKeys, ...playerKeys]; // Reference first, player second
+  
+  // Get player names for compare mode color assignment
+  const playerNames = {
+    player1: mode === 'compare' ? dataKeys.find(k => !k.includes('Best') && k !== dataKeys[0]) || '' : '',
+    player2: mode === 'compare' ? dataKeys.find(k => !k.includes('Best') && k !== dataKeys[0] && k !== playerNames.player1) || '' : ''
+  };
+  
+  // In compare mode, order should be: baseline, player1, player2
+  const compareOrderedKeys = mode === 'compare' 
+    ? [
+        ...dataKeys.filter(k => k.includes('Best')), // Baseline first
+        playerNames.player1,
+        playerNames.player2
+      ].filter(Boolean)
+    : orderedKeys;
 
 
   return (
@@ -336,13 +351,13 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                   domain={[0, 100]}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
                 />
-                {orderedKeys.map((key, index) => (
+                {compareOrderedKeys.map((key) => (
                   <Radar
                     key={key}
                     name={key}
                     dataKey={key}
-                    stroke={getLineColor(key, mode, index, mode === 'compare')}
-                    fill={getLineColor(key, mode, index, mode === 'compare')}
+                    stroke={getLineColor(key, mode, playerNames)}
+                    fill={getLineColor(key, mode, playerNames)}
                     fillOpacity={key === 'You' || (mode === 'compare' && !key.includes('Best')) ? 0.4 : 0.15}
                     strokeWidth={getStrokeWidth(key)}
                   />
