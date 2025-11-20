@@ -6,7 +6,8 @@ export const performanceEntrySchema = z.object({
   metric_type: z.enum([
     'vertical_jump',
     'jump_gather', 
-    '40yd_dash',
+    '30yd_dash',
+    '3_cone_drill',
     'shuttle_5_10_5',
     'pushups_1min'
   ], { message: "Invalid metric type" }),

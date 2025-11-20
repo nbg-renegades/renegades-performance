@@ -64,12 +64,13 @@ Deno.serve(async (req) => {
     const allMetrics = [
       'vertical_jump',
       'jump_gather',
-      '40yd_dash',
+      '30yd_dash',
+      '3_cone_drill',
       'shuttle_5_10_5',
       'pushups_1min'
     ];
 
-    const lowerIsBetter = ['40yd_dash', 'shuttle_5_10_5'];
+    const lowerIsBetter = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'];
 
     // Fetch all performance data for normalization context
     // Get best daily entries (only one entry per player per metric per day)

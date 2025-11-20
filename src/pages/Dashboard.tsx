@@ -113,7 +113,7 @@ const Dashboard = () => {
     const sixMonthResults: TeamBestMetric[] = [];
 
     allMetrics.forEach(metric => {
-      const isLowerBetter = ['40yd_dash', 'shuttle_5_10_5'].includes(metric);
+      const isLowerBetter = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'].includes(metric);
       
       // All-time best
       const metricEntries = allTimeData?.filter(e => e.metric_type === metric) || [];
@@ -165,7 +165,7 @@ const Dashboard = () => {
         const isOutdated = lastEntryDate < threeMonthsAgo;
         
         // Calculate best value
-        const isLowerBetter = ['40yd_dash', '3cone_drill', 'shuffle_run'].includes(metric);
+        const isLowerBetter = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'].includes(metric);
         const bestValue = isLowerBetter
           ? Math.min(...metricEntries.map(e => e.value))
           : Math.max(...metricEntries.map(e => e.value));

@@ -193,7 +193,8 @@ const Performance = () => {
     const unitMap: Record<string, string> = {
       "vertical_jump": "cm",
       "jump_gather": "cm",
-      "40yd_dash": "s",
+      "30yd_dash": "s",
+      "3_cone_drill": "s",
       "shuttle_5_10_5": "s",
       "pushups_1min": "reps",
     };
@@ -327,7 +328,8 @@ const Performance = () => {
   const metricDisplayNames: Record<string, string> = {
     "vertical_jump": "Vertical Jump [cm]",
     "jump_gather": "Jump w. Gather Step [cm]",
-    "40yd_dash": "40-Yard Dash [s]",
+    "30yd_dash": "30-Yard Dash [s]",
+    "3_cone_drill": "3-Cone Drill [s]",
     "shuttle_5_10_5": "5-10-5 Shuttle [s]",
     "pushups_1min": "Push-Ups (1 Min AMRAP) [reps]",
   };
@@ -517,7 +519,7 @@ const Performance = () => {
                     id="value"
                     name="value"
                     type="number"
-                    step={(["40yd_dash", "shuttle_5_10_5"].includes(selectedMetric) ? 0.01 : 1) as any}
+                    step={(["30yd_dash", "3_cone_drill", "shuttle_5_10_5"].includes(selectedMetric) ? 0.01 : 1) as any}
                     min={0}
                     required
                   />

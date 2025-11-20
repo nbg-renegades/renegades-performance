@@ -1,4 +1,4 @@
-export type MetricType = 'vertical_jump' | 'jump_gather' | '40yd_dash' | 'shuttle_5_10_5' | 'pushups_1min';
+export type MetricType = 'vertical_jump' | 'jump_gather' | '30yd_dash' | '3_cone_drill' | 'shuttle_5_10_5' | 'pushups_1min';
 
 export interface MetricData {
   metric_type: MetricType;
@@ -13,13 +13,14 @@ export interface NormalizedMetric {
 }
 
 // Metrics where lower is better (time-based)
-const LOWER_IS_BETTER: MetricType[] = ['40yd_dash', 'shuttle_5_10_5'];
+const LOWER_IS_BETTER: MetricType[] = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'];
 
 // User-friendly metric labels
 export const METRIC_LABELS: Record<MetricType, string> = {
   'vertical_jump': 'Vertical Jump',
   'jump_gather': 'Jump w. Gather Step',
-  '40yd_dash': '40-Yard Dash',
+  '30yd_dash': '30-Yard Dash',
+  '3_cone_drill': '3-Cone Drill',
   'shuttle_5_10_5': '5-10-5 Shuttle',
   'pushups_1min': 'Push-Ups (1 Min AMRAP)'
 };
@@ -27,7 +28,8 @@ export const METRIC_LABELS: Record<MetricType, string> = {
 export const METRIC_UNITS: Record<MetricType, string> = {
   'vertical_jump': 'cm',
   'jump_gather': 'cm',
-  '40yd_dash': 's',
+  '30yd_dash': 's',
+  '3_cone_drill': 's',
   'shuttle_5_10_5': 's',
   'pushups_1min': 'reps'
 };
