@@ -92,7 +92,7 @@ export function usePerformanceComparison({
           {
             body: {
               mode: baselineMode,
-              position: selectedPosition,
+              ...(selectedPosition && { position: selectedPosition }),
               currentPlayerId: comparePlayer1Id
             }
           }
@@ -179,7 +179,7 @@ export function usePerformanceComparison({
         {
           body: {
             mode,
-            position: selectedPosition,
+            ...(selectedPosition && { position: selectedPosition }),
             currentPlayerId: currentUserId
           }
         }
