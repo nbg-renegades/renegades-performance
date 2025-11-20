@@ -17,9 +17,20 @@ interface PerformanceRadarChartProps {
 
 const PLAYER_COLOR = 'hsl(var(--primary))'; // Gold color for current player
 const COMPARISON_COLOR = 'hsl(var(--muted-foreground))'; // Gray for comparisons
+const SILVER_COLOR = '#C0C0C0'; // Silver for player 2 in compare mode
 
-function getLineColor(key: string, mode: ComparisonMode, index: number): string {
-  // Current player is always gold
+function getLineColor(key: string, mode: ComparisonMode, index: number, isCompareMode: boolean): string {
+  // In compare mode, assign specific colors
+  if (isCompareMode) {
+    // Check if key contains player names (not benchmark)
+    if (key.includes('Best')) return COMPARISON_COLOR;
+    // First player (Gold)
+    if (index === 1) return PLAYER_COLOR;
+    // Second player (Silver)
+    if (index === 2) return SILVER_COLOR;
+  }
+  
+  // Current player is always gold in non-compare modes
   if (key === 'You') return PLAYER_COLOR;
   
   // Single comparison modes use gray
@@ -38,12 +49,21 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
   const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
   const [isCoach, setIsCoach] = useState(false);
+  const [isCoachAndPlayer, setIsCoachAndPlayer] = useState(false);
+  
+  // Compare mode states
+  const [compareBaseline, setCompareBaseline] = useState<'best' | 'offense' | 'defense'>('best');
+  const [comparePlayer1, setComparePlayer1] = useState<string>('');
+  const [comparePlayer2, setComparePlayer2] = useState<string>('');
 
   const { data: comparisonData, isLoading, error, refetch, positionLabel } = usePerformanceComparison({
     mode,
     selectedPosition,
     currentUserId: selectedPlayerId || currentUserId,
-    userRole
+    userRole,
+    comparePlayer1Id: comparePlayer1,
+    comparePlayer2Id: comparePlayer2,
+    compareBaseline
   });
 
   useEffect(() => {
@@ -51,7 +71,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
     const checkCoach = userRole === 'coach' || userRole === 'admin';
     setIsCoach(checkCoach);
 
-    // If coach, fetch all players and set default
+    // If coach, fetch all players and check if coach is also a player
     if (checkCoach) {
       fetchAllPlayers();
     } else {
@@ -112,6 +132,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
 
     // Check if current coach is also a player
     const coachIsPlayer = playerData.some(p => p.player_id === currentUserId);
+    setIsCoachAndPlayer(coachIsPlayer);
     
     if (coachIsPlayer) {
       setSelectedPlayerId(currentUserId);
@@ -173,13 +194,28 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
         )}
 
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
-          <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'} h-auto`}>
+          <TabsList className={`grid w-full ${
+            isCoach && !isCoachAndPlayer 
+              ? 'grid-cols-4' 
+              : playerUnit !== null 
+                ? 'grid-cols-3' 
+                : 'grid-cols-4'
+          } h-auto`}>
             <TabsTrigger value="best" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
               Best Overall
             </TabsTrigger>
-            <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
-              {isLoading ? 'Loading...' : (positionLabel || 'My Position')}
-            </TabsTrigger>
+            {/* Show position tab only for players (including coaches who are also players) */}
+            {!isCoach || isCoachAndPlayer ? (
+              <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+                {isLoading ? 'Loading...' : (positionLabel || 'My Position')}
+              </TabsTrigger>
+            ) : null}
+            {/* Show compare tab only for coaches who are NOT players */}
+            {isCoach && !isCoachAndPlayer && (
+              <TabsTrigger value="compare" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+                Compare
+              </TabsTrigger>
+            )}
             {(isCoach || playerUnit === 'offense') && (
               <TabsTrigger value="offense" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
                 Offense
@@ -213,6 +249,53 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
           )}
 
           <TabsContent value="best" />
+          <TabsContent value="compare" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="baseline-select">Baseline</Label>
+                <Select value={compareBaseline} onValueChange={(v) => setCompareBaseline(v as 'best' | 'offense' | 'defense')}>
+                  <SelectTrigger id="baseline-select" className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="best">Best Overall</SelectItem>
+                    <SelectItem value="offense">Offense</SelectItem>
+                    <SelectItem value="defense">Defense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="player1-select">Player 1 (Gold)</Label>
+                <Select value={comparePlayer1} onValueChange={setComparePlayer1}>
+                  <SelectTrigger id="player1-select" className="bg-background">
+                    <SelectValue placeholder="Select player..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {players.map(player => (
+                      <SelectItem key={player.id} value={player.id}>
+                        {player.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="player2-select">Player 2 (Silver)</Label>
+                <Select value={comparePlayer2} onValueChange={setComparePlayer2}>
+                  <SelectTrigger id="player2-select" className="bg-background">
+                    <SelectValue placeholder="Select player..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {players.map(player => (
+                      <SelectItem key={player.id} value={player.id}>
+                        {player.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </TabsContent>
           <TabsContent value="offense" />
           <TabsContent value="defense" />
         </Tabs>
@@ -251,9 +334,9 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                     key={key}
                     name={key}
                     dataKey={key}
-                    stroke={getLineColor(key, mode, index)}
-                    fill={getLineColor(key, mode, index)}
-                    fillOpacity={key === 'You' ? 0.4 : 0.15}
+                    stroke={getLineColor(key, mode, index, mode === 'compare')}
+                    fill={getLineColor(key, mode, index, mode === 'compare')}
+                    fillOpacity={key === 'You' || (mode === 'compare' && !key.includes('Best')) ? 0.4 : 0.15}
                     strokeWidth={getStrokeWidth(key)}
                   />
                 ))}
