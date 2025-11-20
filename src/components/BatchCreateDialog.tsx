@@ -36,7 +36,8 @@ export function BatchCreateDialog({ open, onOpenChange, players, currentUserId, 
   const [metrics, setMetrics] = useState<Record<MetricType, string>>({
     'vertical_jump': '',
     'jump_gather': '',
-    '40yd_dash': '',
+    '30yd_dash': '',
+    '3_cone_drill': '',
     'shuttle_5_10_5': '',
     'pushups_1min': ''
   });
@@ -54,7 +55,8 @@ export function BatchCreateDialog({ open, onOpenChange, players, currentUserId, 
     setMetrics({
       'vertical_jump': '',
       'jump_gather': '',
-      '40yd_dash': '',
+      '30yd_dash': '',
+      '3_cone_drill': '',
       'shuttle_5_10_5': '',
       'pushups_1min': ''
     });

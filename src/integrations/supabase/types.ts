@@ -145,6 +145,8 @@ export type Database = {
         | "40yd_dash"
         | "shuttle_5_10_5"
         | "pushups_1min"
+        | "30yd_dash"
+        | "3_cone_drill"
       position_type:
         | "quarterback"
         | "receiver"
@@ -286,6 +288,8 @@ export const Constants = {
         "40yd_dash",
         "shuttle_5_10_5",
         "pushups_1min",
+        "30yd_dash",
+        "3_cone_drill",
       ],
       position_type: [
         "quarterback",
