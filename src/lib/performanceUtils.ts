@@ -36,8 +36,8 @@ export const METRIC_UNITS: Record<MetricType, string> = {
 
 /**
  * Normalize metrics to 0-100 scale where 100 is always best
- * For time metrics: 0 = 2x best time, 100 = best time
- * For distance/reps: 0 = actual 0, 100 = best value
+ * For time metrics: 0 = 1.4x best time, 100 = best time
+ * For distance/reps: 0 = best / 2, 100 = best value
  */
 export function normalizeMetrics(
   data: MetricData[],
@@ -76,8 +76,8 @@ export function normalizeMetrics(
     const isLowerBetter = LOWER_IS_BETTER.includes(item.metric_type);
 
     if (isLowerBetter) {
-      // For time metrics: baseline (0) = best * 2, best performance (100) = best
-      const baseline = bestValue * 2;
+      // For time metrics: baseline (0) = best * 1.4, best performance (100) = best
+      const baseline = bestValue * 1.4;
       const range = baseline - bestValue;
       
       if (range === 0) {
@@ -86,11 +86,14 @@ export function normalizeMetrics(
         normalized = Math.max(0, Math.min(100, ((baseline - item.value) / range) * 100));
       }
     } else {
-      // For distance/reps: baseline (0) = 0, best performance (100) = best value
-      if (bestValue === 0) {
-        normalized = 0;
+      // For distance/reps: baseline (0) = best / 2, best performance (100) = best value
+      const baseline = bestValue / 2;
+      const range = bestValue - baseline;
+      
+      if (range === 0) {
+        normalized = 100;
       } else {
-        normalized = Math.max(0, Math.min(100, (item.value / bestValue) * 100));
+        normalized = Math.max(0, Math.min(100, ((item.value - baseline) / range) * 100));
       }
     }
 
