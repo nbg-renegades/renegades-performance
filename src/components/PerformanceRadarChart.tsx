@@ -154,12 +154,14 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
     }
   }
 
-  // Transform data for recharts - ensure Reference is drawn first (outer), then Player (inner)
+  // Transform data for recharts - match metrics by name, not by index
   const chartData = Object.keys(comparisonData).length > 0
-    ? comparisonData[Object.keys(comparisonData)[0]].map((metric, index) => {
+    ? comparisonData[Object.keys(comparisonData)[0]].map((metric) => {
         const dataPoint: any = { metric: metric.metric };
         Object.entries(comparisonData).forEach(([key, metrics]) => {
-          dataPoint[key] = metrics[index]?.value || 0;
+          // Find the matching metric by name instead of using index
+          const matchingMetric = metrics.find(m => m.metric === metric.metric);
+          dataPoint[key] = matchingMetric?.value || 0;
         });
         return dataPoint;
       })
