@@ -150,7 +150,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
       <CardHeader>
         <CardTitle>Performance Comparison</CardTitle>
         <CardDescription>
-          Compare your latest performance against reference benchmarks. All metrics are scaled 0-100 where 100 = best performance. For time-based metrics, 0 = 1.4× the best time; for distance/reps, 0 = half the best value.
+          Compare your latest performance against reference benchmarks within your comparison group. All metrics are scaled 0-100 where 100 = best performance in the group. For time-based metrics, 0 = 1.4× the group's best time; for distance, 0 = half the group's best; for push-ups, 0 = 1/5 the group's best.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -174,15 +174,21 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
 
         <Tabs value={mode} onValueChange={(v) => setMode(v as ComparisonMode)} className="w-full">
           <TabsList className={`grid w-full ${playerUnit !== null ? 'grid-cols-3' : 'grid-cols-4'} h-auto`}>
-            <TabsTrigger value="best" className="px-2 py-2 data-[state=active]:bg-background">Best Overall</TabsTrigger>
-            <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background">
-              {positionLabel || 'My Position'}
+            <TabsTrigger value="best" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+              Best Overall
+            </TabsTrigger>
+            <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+              {isLoading ? 'Loading...' : (positionLabel || 'My Position')}
             </TabsTrigger>
             {(isCoach || playerUnit === 'offense') && (
-              <TabsTrigger value="offense" className="px-2 py-2 data-[state=active]:bg-background">Offense</TabsTrigger>
+              <TabsTrigger value="offense" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+                Offense
+              </TabsTrigger>
             )}
             {(isCoach || playerUnit === 'defense') && (
-              <TabsTrigger value="defense" className="px-2 py-2 data-[state=active]:bg-background">Defense</TabsTrigger>
+              <TabsTrigger value="defense" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+                Defense
+              </TabsTrigger>
             )}
           </TabsList>
 
@@ -280,11 +286,11 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
           <div className="mt-4 p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
             <h4 className="font-semibold text-foreground">How the 0-100 Scale Works</h4>
             <ul className="list-disc list-inside text-muted-foreground space-y-1">
-              <li><strong>100 = Best performance</strong> (fastest time or highest distance/reps)</li>
-              <li><strong>0 = Baseline:</strong> 1.4× the best time for speed; 1/2 best for jumps; 1/5 best for push-ups</li>
-              <li><strong>Time metrics:</strong> If best is 5s, then 5s=100, 7s=0</li>
-              <li><strong>Jumps:</strong> If best is 200cm, then 200cm=100, 100cm=0</li>
-              <li><strong>Push-ups:</strong> If best is 100 reps, then 100=100, 20=0</li>
+              <li><strong>100 = Best in comparison group</strong> (fastest time or highest distance/reps within the selected comparison)</li>
+              <li><strong>0 = Baseline:</strong> 1.4× the group's best time for speed; 1/2 group's best for jumps; 1/5 group's best for push-ups</li>
+              <li><strong>Time metrics:</strong> If group best is 5s, then 5s=100, 7s=0</li>
+              <li><strong>Jumps:</strong> If group best is 200cm, then 200cm=100, 100cm=0</li>
+              <li><strong>Push-ups:</strong> If group best is 100 reps, then 100=100, 20=0</li>
             </ul>
           </div>
         </div>
