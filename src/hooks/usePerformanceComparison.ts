@@ -15,6 +15,10 @@ export interface UsePerformanceComparisonResult {
   allMetricsData: MetricData[];
   refetch: () => void;
   positionLabel?: string;
+  comparePlayerNames?: {
+    player1: string;
+    player2: string;
+  };
 }
 
 interface UsePerformanceComparisonProps {
@@ -41,6 +45,7 @@ export function usePerformanceComparison({
   const [error, setError] = useState<string | null>(null);
   const [allMetricsData, setAllMetricsData] = useState<MetricData[]>([]);
   const [positionLabel, setPositionLabel] = useState<string | undefined>();
+  const [comparePlayerNames, setComparePlayerNames] = useState<{ player1: string; player2: string } | undefined>();
 
   useEffect(() => {
     fetchComparisonData();
@@ -134,25 +139,34 @@ export function usePerformanceComparison({
           result[benchmarkLabel] = normalizeMetrics(benchmarks, allData as MetricData[]);
         }
 
-        // Add player 1 (Gold) - fetch name from profiles
+        // Fetch player names
+        const { data: profile1 } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', comparePlayer1Id)
+          .single();
+        const player1Name = profile1 ? `${profile1.first_name} ${profile1.last_name}` : 'Player 1';
+
+        const { data: profile2 } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', comparePlayer2Id)
+          .single();
+        const player2Name = profile2 ? `${profile2.first_name} ${profile2.last_name}` : 'Player 2';
+
+        // Store the player names in order
+        setComparePlayerNames({
+          player1: player1Name,
+          player2: player2Name
+        });
+
+        // Add player 1 (Gold)
         if (player1Data.length > 0) {
-          const { data: profile1 } = await supabase
-            .from('profiles')
-            .select('first_name, last_name')
-            .eq('id', comparePlayer1Id)
-            .single();
-          const player1Name = profile1 ? `${profile1.first_name} ${profile1.last_name}` : 'Player 1';
           result[player1Name] = normalizeMetrics(player1Data, allData as MetricData[]);
         }
 
-        // Add player 2 (Silver) - fetch name from profiles
+        // Add player 2 (Silver)
         if (player2Data.length > 0) {
-          const { data: profile2 } = await supabase
-            .from('profiles')
-            .select('first_name, last_name')
-            .eq('id', comparePlayer2Id)
-            .single();
-          const player2Name = profile2 ? `${profile2.first_name} ${profile2.last_name}` : 'Player 2';
           result[player2Name] = normalizeMetrics(player2Data, allData as MetricData[]);
         }
 
@@ -249,7 +263,8 @@ export function usePerformanceComparison({
     error,
     allMetricsData,
     refetch: fetchComparisonData,
-    positionLabel
+    positionLabel,
+    comparePlayerNames
   };
 
   async function fetchLatestPlayerMetrics(playerId: string): Promise<MetricData[]> {

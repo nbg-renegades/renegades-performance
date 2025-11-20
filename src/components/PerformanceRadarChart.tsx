@@ -56,7 +56,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const [comparePlayer1, setComparePlayer1] = useState<string>('');
   const [comparePlayer2, setComparePlayer2] = useState<string>('');
 
-  const { data: comparisonData, isLoading, error, refetch, positionLabel } = usePerformanceComparison({
+  const { data: comparisonData, isLoading, error, refetch, positionLabel, comparePlayerNames } = usePerformanceComparison({
     mode,
     selectedPosition,
     currentUserId: selectedPlayerId || currentUserId,
@@ -171,20 +171,15 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
   const playerKeys = dataKeys.filter(key => key === 'You');
   const orderedKeys = [...referenceKeys, ...playerKeys]; // Reference first, player second
   
-  // Get player names for compare mode color assignment
-  const player1Name = mode === 'compare' ? dataKeys.find(k => !k.includes('Best')) || '' : '';
-  const player2Name = mode === 'compare' ? dataKeys.find(k => !k.includes('Best') && k !== player1Name) || '' : '';
-  const playerNames = {
-    player1: player1Name,
-    player2: player2Name
-  };
+  // Get player names for compare mode color assignment - use the names from the hook
+  const playerNames = comparePlayerNames || { player1: '', player2: '' };
   
   // In compare mode, order should be: baseline, player1, player2
   const compareOrderedKeys = mode === 'compare' 
     ? [
         ...dataKeys.filter(k => k.includes('Best')), // Baseline first
-        player1Name,
-        player2Name
+        playerNames.player1,
+        playerNames.player2
       ].filter(Boolean)
     : orderedKeys;
 
