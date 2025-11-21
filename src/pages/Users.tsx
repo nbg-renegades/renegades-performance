@@ -58,7 +58,8 @@ const Users = () => {
     const { data } = await supabase
       .from("profiles")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("last_name", { ascending: true })
+      .order("first_name", { ascending: true });
 
     if (data) {
       const userIds = data.map(u => u.id);

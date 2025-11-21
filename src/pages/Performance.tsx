@@ -100,7 +100,9 @@ const Performance = () => {
         const { data: playersData } = await supabase
           .from("profiles")
           .select("id, first_name, last_name")
-          .in("id", playerIds);
+          .in("id", playerIds)
+          .order("last_name", { ascending: true })
+          .order("first_name", { ascending: true });
 
         setPlayers(playersData || []);
       } else {
