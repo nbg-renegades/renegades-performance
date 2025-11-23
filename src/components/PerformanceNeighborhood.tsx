@@ -151,13 +151,13 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
                 )}
               </div>
 
-              {metric.next_best_player && metric.next_best_value !== null && (
+              {metric.next_best_value !== null && (
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
                   <TrendingUp className="h-4 w-4 text-primary" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Next Best</p>
                     <p className="text-sm font-medium">
-                      {metric.next_best_player}: <span className="text-primary">{metric.next_best_value.toFixed(2)}</span> <span className="text-xs text-muted-foreground">[{metric.unit}]</span>
+                      <span className="text-primary">{metric.next_best_value.toFixed(2)}</span> <span className="text-xs text-muted-foreground">[{metric.unit}]</span>
                     </p>
                   </div>
                 </div>
