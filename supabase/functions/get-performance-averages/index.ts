@@ -39,13 +39,17 @@ Deno.serve(async (req) => {
       throw new Error('player_id is required');
     }
 
-    // Get best daily entries using the RLS-protected function
+    // Get all performance entries directly (service role bypasses RLS)
     const { data: allEntries, error: entriesError } = await supabase
-      .rpc('get_best_daily_entries');
+      .from('performance_entries')
+      .select('*');
 
     if (entriesError) {
+      console.error('Error fetching entries:', entriesError);
       throw entriesError;
     }
+
+    console.log('Total entries from table:', allEntries?.length || 0);
 
     // Get all player positions
     const { data: positions, error: positionsError } = await supabase
@@ -79,25 +83,47 @@ Deno.serve(async (req) => {
       }));
     };
 
-    // Get latest entry per player per metric
+    // Get latest entry per player per metric (best value per day)
     const latestEntries = new Map<string, any>();
     allEntries?.forEach((entry: any) => {
       const key = `${entry.player_id}-${entry.metric_type}`;
       const existing = latestEntries.get(key);
-      if (!existing || new Date(entry.entry_date) > new Date(existing.entry_date)) {
+      
+      if (!existing) {
         latestEntries.set(key, entry);
+      } else {
+        // Keep the entry with the most recent date
+        const existingDate = new Date(existing.entry_date);
+        const currentDate = new Date(entry.entry_date);
+        
+        if (currentDate > existingDate) {
+          latestEntries.set(key, entry);
+        } else if (currentDate.getTime() === existingDate.getTime()) {
+          // Same date - keep the better value
+          const isTimeBased = ['shuttle_5_10_5', '30yd_dash', '3_cone_drill'].includes(entry.metric_type);
+          const isBetter = isTimeBased 
+            ? entry.value < existing.value  // Lower is better for time
+            : entry.value > existing.value; // Higher is better for distance/reps
+          
+          if (isBetter) {
+            latestEntries.set(key, entry);
+          }
+        }
       }
     });
 
     const latest = Array.from(latestEntries.values());
+    console.log('Latest entries count:', latest.length);
 
     // Calculate averages for all players
     const allAverages = calculateAverages(latest);
+    console.log('All averages:', allAverages.length);
 
     // Calculate averages by position
     let positionAverages: MetricAverage[] = [];
     if (position) {
       const positionEntries = latest.filter(e => positionMap.get(e.player_id) === position);
+      console.log('Position entries for', position, ':', positionEntries.length);
       positionAverages = calculateAverages(positionEntries);
     }
 
@@ -112,6 +138,7 @@ Deno.serve(async (req) => {
         const playerPosition = positionMap.get(e.player_id);
         return playerPosition && relevantPositions.includes(playerPosition);
       });
+      console.log('Unit entries for', unit, ':', unitEntries.length);
       unitAverages = calculateAverages(unitEntries);
     }
 
