@@ -6,6 +6,7 @@ import { TrendingUp, Users, Target, AlertCircle, Clock, Trophy } from "lucide-re
 import { Badge } from "@/components/ui/badge";
 import { METRIC_LABELS, METRIC_UNITS, type MetricType, getAllMetricTypes } from "@/lib/performanceUtils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PerformanceNeighborhood } from "@/components/PerformanceNeighborhood";
 
 interface MetricStatus {
   metric: MetricType;
@@ -333,6 +334,11 @@ const Dashboard = () => {
             </Card>
           )}
         </div>
+      )}
+
+      {/* Performance Neighborhood - only for players */}
+      {primaryRole === "player" && stats.userId && (
+        <PerformanceNeighborhood playerId={stats.userId} />
       )}
 
       <Card className="border-border/50 shadow-card">
