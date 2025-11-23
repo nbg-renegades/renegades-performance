@@ -74,6 +74,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          terms_accepted_at: string | null
           username: string
         }
         Insert: {
@@ -81,6 +82,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          terms_accepted_at?: string | null
           username: string
         }
         Update: {
@@ -88,6 +90,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          terms_accepted_at?: string | null
           username?: string
         }
         Relationships: []

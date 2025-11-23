@@ -5,12 +5,15 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { User, Session } from "@supabase/supabase-js";
 import logo from "@/assets/logo.png";
+import { TermsDialog } from "@/components/TermsDialog";
 
 const MainLayout = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | undefined>();
+  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -65,6 +68,37 @@ const MainLayout = () => {
     }
   };
 
+  const checkTermsAcceptance = async (userId: string) => {
+    if (!userId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("terms_accepted_at")
+        .eq("id", userId)
+        .single();
+
+      if (!error && data) {
+        const hasAccepted = !!data.terms_accepted_at;
+        setTermsAccepted(hasAccepted);
+        setShowTermsDialog(!hasAccepted);
+      }
+    } catch (error) {
+      // Silently handle errors
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      checkTermsAcceptance(user.id);
+    }
+  }, [user]);
+
+  const handleTermsAccept = () => {
+    setTermsAccepted(true);
+    setShowTermsDialog(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -78,24 +112,31 @@ const MainLayout = () => {
   }
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar userRole={userRole} />
-        <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b border-border px-4 md:px-6 bg-card">
-            <SidebarTrigger className="mr-2 md:mr-4" />
-            <img src={logo} alt="Logo" className="h-8 w-8 mr-3" />
-            <h1 className="text-base md:text-lg font-semibold truncate">
-              <span className="hidden sm:inline">Flag Football Performance Center</span>
-              <span className="sm:hidden">Performance Center</span>
-            </h1>
-          </header>
-          <main className="flex-1 p-4 md:p-6">
-            <Outlet />
-          </main>
+    <>
+      <TermsDialog 
+        open={showTermsDialog} 
+        onAccept={handleTermsAccept}
+        canCancel={false}
+      />
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar userRole={userRole} onViewTerms={() => setShowTermsDialog(true)} />
+          <div className="flex-1 flex flex-col">
+            <header className="h-14 flex items-center border-b border-border px-4 md:px-6 bg-card">
+              <SidebarTrigger className="mr-2 md:mr-4" />
+              <img src={logo} alt="Logo" className="h-8 w-8 mr-3" />
+              <h1 className="text-base md:text-lg font-semibold truncate">
+                <span className="hidden sm:inline">Flag Football Performance Center</span>
+                <span className="sm:hidden">Performance Center</span>
+              </h1>
+            </header>
+            <main className="flex-1 p-4 md:p-6">
+              <Outlet />
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </>
   );
 };
 
