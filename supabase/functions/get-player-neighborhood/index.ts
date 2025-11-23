@@ -43,9 +43,10 @@ Deno.serve(async (req) => {
       throw new Error('player_id is required');
     }
 
-    // Get best daily entries
+    // Get all performance entries directly (service role bypasses RLS)
     const { data: allEntries, error: entriesError } = await supabase
-      .rpc('get_best_daily_entries');
+      .from('performance_entries')
+      .select('*');
 
     if (entriesError) {
       throw entriesError;
@@ -76,13 +77,32 @@ Deno.serve(async (req) => {
 
     const profileMap = new Map(profiles?.map(p => [p.id, `${p.first_name} ${p.last_name}`]) || []);
 
-    // Get latest entry per player per metric
+    // Get latest entry per player per metric (best value per day)
     const latestEntries = new Map<string, any>();
     allEntries?.forEach((entry: any) => {
       const key = `${entry.player_id}-${entry.metric_type}`;
       const existing = latestEntries.get(key);
-      if (!existing || new Date(entry.entry_date) > new Date(existing.entry_date)) {
+      
+      if (!existing) {
         latestEntries.set(key, entry);
+      } else {
+        // Keep the entry with the most recent date
+        const existingDate = new Date(existing.entry_date);
+        const currentDate = new Date(entry.entry_date);
+        
+        if (currentDate > existingDate) {
+          latestEntries.set(key, entry);
+        } else if (currentDate.getTime() === existingDate.getTime()) {
+          // Same date - keep the better value
+          const isTimeBased = timeBasedMetrics.includes(entry.metric_type);
+          const isBetter = isTimeBased 
+            ? entry.value < existing.value  // Lower is better for time
+            : entry.value > existing.value; // Higher is better for distance/reps
+          
+          if (isBetter) {
+            latestEntries.set(key, entry);
+          }
+        }
       }
     });
 
