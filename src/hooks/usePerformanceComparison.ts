@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeMetrics, getAllMetricTypes, type MetricData, type NormalizedMetric } from '@/lib/performanceUtils';
 
-export type ComparisonMode = 'best' | 'position' | 'offense' | 'defense' | 'compare' | 'average';
+export type ComparisonMode = 'best' | 'position' | 'offense' | 'defense' | 'compare';
 
 export interface ComparisonData {
   [key: string]: NormalizedMetric[];
@@ -176,100 +176,10 @@ export function usePerformanceComparison({
         return;
       }
 
-      // Guard against empty player IDs for non-compare and non-average modes
-      if (mode !== 'average' && (!currentUserId || currentUserId.trim() === '')) {
+      // Guard against empty player IDs
+      if (!currentUserId || currentUserId.trim() === '') {
         console.warn('No valid player ID provided');
         setError('No player ID provided');
-        setIsLoading(false);
-        return;
-      }
-
-      // For average mode, fetch averages instead of benchmarks
-      if (mode === 'average') {
-        // Determine unit based on position if we're in position mode
-        let unitParam: 'offense' | 'defense' | undefined = undefined;
-        let positionParam: string | undefined = undefined;
-
-        if (selectedPosition) {
-          positionParam = selectedPosition;
-          const offensePositions = ['QB', 'WR', 'C'];
-          const defensePositions = ['DB', 'B'];
-          if (offensePositions.includes(selectedPosition)) {
-            unitParam = 'offense';
-          } else if (defensePositions.includes(selectedPosition)) {
-            unitParam = 'defense';
-          }
-        }
-
-        const { data: averagesResponse, error: averagesError } = await supabase.functions.invoke(
-          'get-performance-averages',
-          {
-            body: {
-              player_id: currentUserId || '',
-              position: positionParam,
-              unit: unitParam
-            }
-          }
-        );
-
-        if (averagesError) {
-          console.error('Error fetching averages:', averagesError);
-          setError('Failed to load average data. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-
-        const { all, position, unit } = averagesResponse;
-
-        // Fetch benchmark data to get allData
-        const { data: benchmarkResponse, error: benchmarkError } = await supabase.functions.invoke(
-          'get-performance-benchmarks',
-          {
-            body: {
-              mode: 'best',
-              currentPlayerId: currentUserId || ''
-            }
-          }
-        );
-
-        if (benchmarkError) {
-          console.error('Error fetching benchmark data:', benchmarkError);
-          setError('Failed to load data. Please try again.');
-          setIsLoading(false);
-          return;
-        }
-
-        const { allData } = benchmarkResponse;
-        
-        if (!allData) {
-          setError('No performance data available');
-          setIsLoading(false);
-          return;
-        }
-
-        setAllMetricsData(allData as MetricData[]);
-
-        const result: ComparisonData = {};
-
-        // Add current user's data if available
-        if (currentUserId) {
-          const currentData = await fetchLatestPlayerMetrics(currentUserId);
-          if (currentData.length > 0) {
-            result['You'] = normalizeMetrics(currentData, allData as MetricData[]);
-          }
-        }
-
-        // Add average comparison based on context
-        if (all && all.length > 0) {
-          const avgMetrics: MetricData[] = all.map((avg: any) => ({
-            metric_type: avg.metric_type,
-            value: avg.average_value
-          }));
-          result['Average All'] = normalizeMetrics(avgMetrics, allData as MetricData[]);
-        }
-
-        setData(result);
-        setError(null);
         setIsLoading(false);
         return;
       }
@@ -334,6 +244,64 @@ export function usePerformanceComparison({
             break;
         }
         result[benchmarkLabel] = normalizeMetrics(benchmarks, allData as MetricData[]);
+      }
+
+      // Fetch and add average data for this mode
+      let unitParam: 'offense' | 'defense' | undefined = undefined;
+      let positionParam: string | undefined = undefined;
+
+      if (mode === 'position' && selectedPosition) {
+        positionParam = selectedPosition;
+        const offensePositions = ['QB', 'WR', 'C'];
+        const defensePositions = ['DB', 'B'];
+        if (offensePositions.includes(selectedPosition)) {
+          unitParam = 'offense';
+        } else if (defensePositions.includes(selectedPosition)) {
+          unitParam = 'defense';
+        }
+      } else if (mode === 'offense') {
+        unitParam = 'offense';
+      } else if (mode === 'defense') {
+        unitParam = 'defense';
+      }
+
+      const { data: averagesResponse, error: averagesError } = await supabase.functions.invoke(
+        'get-performance-averages',
+        {
+          body: {
+            player_id: currentUserId,
+            position: positionParam,
+            unit: unitParam
+          }
+        }
+      );
+
+      if (!averagesError && averagesResponse) {
+        let averageData = null;
+        let averageLabel = '';
+
+        if (mode === 'best' && averagesResponse.all) {
+          averageData = averagesResponse.all;
+          averageLabel = 'Average All';
+        } else if (mode === 'position' && averagesResponse.position) {
+          averageData = averagesResponse.position;
+          const posLabel = playerPosition || selectedPosition;
+          averageLabel = `Average ${posLabel}`;
+        } else if (mode === 'offense' && averagesResponse.unit) {
+          averageData = averagesResponse.unit;
+          averageLabel = 'Average Offense';
+        } else if (mode === 'defense' && averagesResponse.unit) {
+          averageData = averagesResponse.unit;
+          averageLabel = 'Average Defense';
+        }
+
+        if (averageData && averageData.length > 0) {
+          const avgMetrics: MetricData[] = averageData.map((avg: any) => ({
+            metric_type: avg.metric_type,
+            value: avg.average_value
+          }));
+          result[averageLabel] = normalizeMetrics(avgMetrics, allData as MetricData[]);
+        }
       }
 
       setData(result);

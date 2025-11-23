@@ -12,6 +12,7 @@ import { BatchCreateDialog } from "@/components/BatchCreateDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
+import { PerformanceNeighborhood } from "@/components/PerformanceNeighborhood";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 import { performanceEntrySchema } from "@/lib/validation";
 import { z } from "zod";
@@ -569,6 +570,8 @@ const Performance = () => {
       <PlayerPerformanceChart currentUserId={currentUserId} userRole={userRole} />
 
       <PerformanceRadarChart currentUserId={currentUserId} userRole={userRole} />
+
+      <PerformanceNeighborhood playerId={currentUserId} />
 
       <Card className="border-border/50 shadow-card">
         <CardHeader>

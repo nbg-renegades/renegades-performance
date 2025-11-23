@@ -73,7 +73,7 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Performance-Nachbarschaft</CardTitle>
+          <CardTitle>Neighborhood</CardTitle>
           <CardDescription>Loading performance comparison...</CardDescription>
         </CardHeader>
         <CardContent>
@@ -91,7 +91,7 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Performance-Nachbarschaft</CardTitle>
+          <CardTitle>Neighborhood</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-destructive">{error}</p>
@@ -106,7 +106,7 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Performance-Nachbarschaft</CardTitle>
+          <CardTitle>Neighborhood</CardTitle>
           <CardDescription>No performance data available yet</CardDescription>
         </CardHeader>
       </Card>
@@ -116,7 +116,7 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Performance-Nachbarschaft</CardTitle>
+        <CardTitle>Neighborhood</CardTitle>
         <CardDescription>Your ranking and next target per metric</CardDescription>
       </CardHeader>
       <CardContent>
