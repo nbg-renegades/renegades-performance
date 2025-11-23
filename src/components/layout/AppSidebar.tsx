@@ -1,4 +1,4 @@
-import { LayoutDashboard, TrendingUp, Users, LogOut, Key } from "lucide-react";
+import { LayoutDashboard, TrendingUp, Users, LogOut, Key, FileText } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -22,9 +22,10 @@ import { useNavigate } from "react-router-dom";
 
 interface AppSidebarProps {
   userRole?: string;
+  onViewTerms: () => void;
 }
 
-export function AppSidebar({ userRole }: AppSidebarProps) {
+export function AppSidebar({ userRole, onViewTerms }: AppSidebarProps) {
   const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
@@ -102,6 +103,14 @@ export function AppSidebar({ userRole }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2">
+        <Button
+          variant="ghost"
+          onClick={onViewTerms}
+          className="w-full justify-start hover:bg-sidebar-accent"
+        >
+          <FileText className="h-4 w-4" />
+          {!collapsed && <span>Terms & Policy</span>}
+        </Button>
         <Button
           variant="ghost"
           onClick={handleChangePassword}
