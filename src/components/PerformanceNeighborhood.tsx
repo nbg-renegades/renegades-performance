@@ -25,7 +25,9 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchNeighborhoodData();
+    if (playerId) {
+      fetchNeighborhoodData();
+    }
   }, [playerId]);
 
   async function fetchNeighborhoodData() {
