@@ -51,6 +51,20 @@ Deno.serve(async (req) => {
       throw entriesError;
     }
 
+    // Check if the player has any entries at all
+    const playerHasEntries = allEntries?.some((entry: any) => entry.player_id === player_id);
+    
+    if (!playerHasEntries) {
+      // Return empty array if player has no recorded entries
+      return new Response(
+        JSON.stringify([]),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    }
+
     // Get all profiles for names
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
