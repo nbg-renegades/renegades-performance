@@ -2,9 +2,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { TrendingUp, Award } from "lucide-react";
+import { TrendingUp, Award, HelpCircle } from "lucide-react";
 
 interface MetricNeighborhood {
   metric_type: string;
@@ -174,6 +175,45 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
             </div>
           ))}
         </div>
+
+        <Accordion type="single" collapsible className="mt-6">
+          <AccordionItem value="percentile-explanation" className="border-border">
+            <AccordionTrigger className="text-sm hover:no-underline">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                <span>How do percentiles work?</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="text-sm text-muted-foreground space-y-3 pt-2">
+              <p>
+                The percentile shows what percentage of the team you performed <strong>better than</strong> for each metric.
+              </p>
+              
+              <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                <p className="font-medium text-foreground">Example: 30-Yard Dash</p>
+                <p>If your team has 10 players and your time is 4.2s (5th fastest):</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>You ran faster than 5 other players</li>
+                  <li>Your percentile: <strong>50%</strong></li>
+                  <li>You're exactly in the middle of the pack</li>
+                </ul>
+              </div>
+
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">What percentiles mean:</p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li><strong>85%</strong> = Top 15% (elite performance)</li>
+                  <li><strong>50%</strong> = Average, better than half the team</li>
+                  <li><strong>20%</strong> = Bottom 20% (room for improvement)</li>
+                </ul>
+              </div>
+
+              <p className="text-xs italic">
+                Higher percentile always means better performance, regardless of whether the metric measures time or distance.
+              </p>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
     </Card>
   );
