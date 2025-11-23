@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, Award } from "lucide-react";
@@ -134,10 +135,19 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
                   </p>
                 </div>
                 {metric.percentile !== null && (
-                  <Badge className={getPercentileBadge(metric.percentile)}>
-                    <Award className="h-3 w-3 mr-1" />
-                    {metric.percentile}%
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className={getPercentileBadge(metric.percentile)}>
+                          <Award className="h-3 w-3 mr-1" />
+                          {metric.percentile}%
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Your ranking: better than {metric.percentile}% of the team for this metric</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
 
