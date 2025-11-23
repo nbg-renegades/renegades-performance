@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         metric_name: metricName,
         unit: currentPlayerEntry.unit,
         current_value: currentValue,
-        next_best_player: nextBestPlayer,
+        next_best_player: null,
         next_best_value: nextBestValue,
         percentile,
       });
