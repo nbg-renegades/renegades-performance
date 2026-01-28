@@ -14,3 +14,9 @@ verify_jwt = true
 
 [functions.reset-user-password]
 verify_jwt = true
+
+[functions.get-performance-averages]
+verify_jwt = true
+
+[functions.get-player-neighborhood]
+verify_jwt = true
