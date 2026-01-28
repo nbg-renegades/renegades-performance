@@ -157,14 +157,22 @@ Deno.serve(async (req) => {
       // Find current player's rank
       const currentRank = sortedEntries.findIndex(e => e.player_id === player_id);
       
-      // Find next best player
+      // Find next best player (must have strictly better value, not tied)
       let nextBestPlayer: string | null = null;
       let nextBestValue: number | null = null;
       
-      if (currentRank > 0) {
-        const nextBest = sortedEntries[currentRank - 1];
-        nextBestPlayer = profileMap.get(nextBest.player_id) || null;
-        nextBestValue = nextBest.value;
+      // Look for someone with a strictly better value (not same score)
+      for (let i = currentRank - 1; i >= 0; i--) {
+        const candidate = sortedEntries[i];
+        const isBetter = isTimeBased 
+          ? candidate.value < currentValue  // Lower is better for time
+          : candidate.value > currentValue; // Higher is better for distance/reps
+        
+        if (isBetter) {
+          nextBestPlayer = profileMap.get(candidate.player_id) || null;
+          nextBestValue = candidate.value;
+          break;
+        }
       }
 
       // Calculate percentile (percentage of players below current player)
