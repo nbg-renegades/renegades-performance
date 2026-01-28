@@ -175,11 +175,17 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Calculate percentile (percentage of players below current player)
+      // Calculate percentile (percentage of players with strictly worse performance)
       const totalPlayers = sortedEntries.length;
-      const playersBelowCount = totalPlayers - currentRank - 1;
+      const playersStrictlyWorseCount = sortedEntries.filter(e => {
+        if (e.player_id === player_id) return false;
+        return isTimeBased 
+          ? e.value > currentValue  // Higher time = worse
+          : e.value < currentValue; // Lower distance/reps = worse
+      }).length;
+      
       const percentile = totalPlayers > 1 
-        ? Math.round((playersBelowCount / (totalPlayers - 1)) * 100)
+        ? Math.round((playersStrictlyWorseCount / (totalPlayers - 1)) * 100)
         : 100;
 
       results.push({
