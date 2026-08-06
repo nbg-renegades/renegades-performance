@@ -1,10 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0';
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
+import { z } from 'npm:zod@4.4.3';
+import { getCorsHeaders } from '../_shared/cors.ts';
 
 // Validation schema
 const deleteUserSchema = z.object({
@@ -14,6 +10,8 @@ const deleteUserSchema = z.object({
 type DeleteUserRequest = z.infer<typeof deleteUserSchema>;
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -79,7 +77,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'Validation failed', 
-          details: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          details: validationResult.error.issues.map(e => `${e.path.join('.')}: ${e.message}`)
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

@@ -1,9 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { createClient } from 'npm:@supabase/supabase-js@2.112.1'
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 const LOWER_IS_BETTER = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'];
 
@@ -16,6 +12,8 @@ interface DashboardStats {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
