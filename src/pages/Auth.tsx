@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +47,7 @@ const Auth = () => {
     });
 
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => e.message).join(", ");
+      const errors = validation.error.issues.map(e => e.message).join(", ");
       toast({
         title: "Validation Error",
         description: errors,
@@ -117,7 +117,7 @@ const Auth = () => {
     });
 
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => e.message).join(", ");
+      const errors = validation.error.issues.map(e => e.message).join(", ");
       toast({
         title: "Validation Error",
         description: errors,

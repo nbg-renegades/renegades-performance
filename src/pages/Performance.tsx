@@ -195,7 +195,7 @@ const Performance = () => {
     });
 
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => e.message).join(", ");
+      const errors = validation.error.issues.map(e => e.message).join(", ");
       toast({
         title: "Validation Error",
         description: errors,
@@ -265,7 +265,7 @@ const Performance = () => {
     }).safeParse({ value, entry_date: entryDate });
 
     if (!editValidation.success) {
-      const errors = editValidation.error.errors.map(e => e.message).join(", ");
+      const errors = editValidation.error.issues.map(e => e.message).join(", ");
       toast({
         title: "Validation Error",
         description: errors,

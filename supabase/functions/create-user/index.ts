@@ -1,6 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.80.0'
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
-import { corsHeaders } from '../_shared/cors.ts'
+import { createClient } from 'npm:@supabase/supabase-js@2.112.1'
+import { z } from 'npm:zod@4.4.3'
+import { getCorsHeaders } from '../_shared/cors.ts'
 
 // Validation schema
 const createUserSchema = z.object({
@@ -24,6 +24,8 @@ const createUserSchema = z.object({
 type CreateUserRequest = z.infer<typeof createUserSchema>
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req)
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -98,7 +100,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'Validation failed', 
-          details: validationResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
+          details: validationResult.error.issues.map(e => `${e.path.join('.')}: ${e.message}`)
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

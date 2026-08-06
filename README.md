@@ -1,54 +1,25 @@
-# Welcome to your Lovable project
+# Renegades Performance
 
-## Project info
-
-**URL**: https://lovable.dev/projects/37f56143-2c58-4d44-910e-17dd00c30c62
+Flag football performance tracking: players log combine-style metrics, coaches compare
+them across positions and units.
 
 ## How can I edit this code?
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/37f56143-2c58-4d44-910e-17dd00c30c62) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requires **Node 24+** (see `.nvmrc`) and npm.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+git clone https://github.com/nbg-renegades/renegades-performance.git
+cd renegades-performance
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm ci        # install dependencies
+npm run dev   # dev server on http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+Other scripts: `npm run build`, `npm run typecheck`, `npm run lint`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+This project was originally scaffolded with Lovable. It is no longer wired to it — the
+`lovable-tagger` plugin has been removed and the app deploys via Netlify, so editing
+happens locally or through pull requests.
 
 ## What technologies are used for this project?
 
@@ -62,12 +33,39 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/37f56143-2c58-4d44-910e-17dd00c30c62) and click on Share -> Publish.
+The frontend is a static SPA hosted on **Netlify**; the backend (Postgres, Auth, Edge
+Functions, Realtime) runs on **Supabase**.
 
-## Can I connect a custom domain to my Lovable project?
+### Frontend (Netlify)
 
-Yes, you can!
+Build settings come from [`netlify.toml`](./netlify.toml) — `npm run build`, publish
+`dist`, with a catch-all rewrite to `index.html` so `BrowserRouter` deep links work.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+1. In Netlify, *Add new site → Import an existing project* and pick this repo.
+2. Accept the detected settings (they are read from `netlify.toml`).
+3. Deploy. Pushes to `main` then deploy automatically.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The `VITE_SUPABASE_*` values are committed in `.env` and are publishable by design, so
+no build environment variables are strictly required. To override them per environment,
+set them under *Site configuration → Environment variables* instead.
+
+### Backend (Supabase)
+
+```sh
+supabase link --project-ref <project-ref>
+supabase db push                              # apply migrations
+supabase functions deploy                     # deploy all edge functions
+```
+
+Edge functions only accept browser requests from origins listed in the
+`ALLOWED_ORIGINS` secret (comma-separated; an entry like `https://*.netlify.app`
+matches deploy previews). **This must be set after the site exists, or production
+requests will fail CORS** — the unset fallback allows localhost only:
+
+```sh
+supabase secrets set ALLOWED_ORIGINS="https://your-site.netlify.app,https://*.netlify.app"
+```
+
+### Custom domain
+
+Add it in Netlify under *Domain management*, then append it to `ALLOWED_ORIGINS`.

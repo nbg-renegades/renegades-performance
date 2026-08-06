@@ -128,7 +128,7 @@ const Users = () => {
     });
 
     if (!validation.success) {
-      const errors = validation.error.errors.map(e => e.message).join(", ");
+      const errors = validation.error.issues.map(e => e.message).join(", ");
       toast({
         title: "Validation Error",
         description: errors,
@@ -336,7 +336,7 @@ const Users = () => {
     });
 
     if (!updateValidation.success) {
-      const errors = updateValidation.error.errors.map(e => e.message).join(", ");
+      const errors = updateValidation.error.issues.map(e => e.message).join(", ");
       toast({
         title: "Validation Error",
         description: errors,
