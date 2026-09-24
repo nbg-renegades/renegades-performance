@@ -1,4 +1,4 @@
-project_id = "rqzkzstltfdtypkvriue"
+project_id = "ekmdcqcjvodsnaqpsgun"
 
 [functions.get-dashboard-stats]
 verify_jwt = true
