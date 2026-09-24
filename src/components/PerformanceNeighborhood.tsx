@@ -57,18 +57,23 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
     }
   }
 
+  // These carried `dark:` variants, but nothing ever sets the `.dark` class that
+  // index.css's @custom-variant keys off - the theme is dark by default, straight from
+  // :root. So only the light half ever applied and the badges rendered as near-white
+  // pastels (computed background oklch(0.962 ...)) on an 8%-lightness page. Keeping the
+  // dark values unconditionally is what was intended all along.
   function getPercentileColor(percentile: number): string {
-    if (percentile >= 80) return 'text-green-600 dark:text-green-400';
-    if (percentile >= 60) return 'text-blue-600 dark:text-blue-400';
-    if (percentile >= 40) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-orange-600 dark:text-orange-400';
+    if (percentile >= 80) return 'text-green-400';
+    if (percentile >= 60) return 'text-blue-400';
+    if (percentile >= 40) return 'text-yellow-400';
+    return 'text-orange-400';
   }
 
   function getPercentileBadge(percentile: number): string {
-    if (percentile >= 80) return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100';
-    if (percentile >= 60) return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100';
-    if (percentile >= 40) return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100';
-    return 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100';
+    if (percentile >= 80) return 'bg-green-900 text-green-100 border-green-700';
+    if (percentile >= 60) return 'bg-blue-900 text-blue-100 border-blue-700';
+    if (percentile >= 40) return 'bg-yellow-900 text-yellow-100 border-yellow-700';
+    return 'bg-orange-900 text-orange-100 border-orange-700';
   }
 
   if (isLoading) {
@@ -167,7 +172,7 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
               {!metric.next_best_player && metric.percentile === 100 && (
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
                   <Award className="h-4 w-4 text-yellow-500" />
-                  <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                  <p className="text-sm font-medium text-yellow-400">
                     Team Leader!
                   </p>
                 </div>

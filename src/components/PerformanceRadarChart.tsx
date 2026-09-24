@@ -221,29 +221,29 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                 ? 'grid-cols-3' 
                 : 'grid-cols-4'
           } h-auto`}>
-            <TabsTrigger value="best" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+            <TabsTrigger value="best" className="px-2 py-2" disabled={isLoading}>
               Best Overall
             </TabsTrigger>
             {/* Show position tab only for players (including coaches who are also players) */}
             {!isCoach || isCoachAndPlayer ? (
-              <TabsTrigger value="position" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+              <TabsTrigger value="position" className="px-2 py-2" disabled={isLoading}>
                 {isLoading ? 'Loading...' : (positionLabel || 'My Position')}
               </TabsTrigger>
             ) : null}
             {/* Show compare tab only for coaches who are NOT players */}
             {/* Compare Tab - Available for all coaches and admins */}
             {isCoach && (
-              <TabsTrigger value="compare" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+              <TabsTrigger value="compare" className="px-2 py-2" disabled={isLoading}>
                 Compare
               </TabsTrigger>
             )}
             {(isCoach || playerUnit === 'offense') && (
-              <TabsTrigger value="offense" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+              <TabsTrigger value="offense" className="px-2 py-2" disabled={isLoading}>
                 Offense
               </TabsTrigger>
             )}
             {(isCoach || playerUnit === 'defense') && (
-              <TabsTrigger value="defense" className="px-2 py-2 data-[state=active]:bg-background" disabled={isLoading}>
+              <TabsTrigger value="defense" className="px-2 py-2" disabled={isLoading}>
                 Defense
               </TabsTrigger>
             )}

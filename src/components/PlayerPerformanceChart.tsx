@@ -196,7 +196,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
         <Tabs value={zoomLevel} onValueChange={(v) => setZoomLevel(v as ZoomLevel)} className="w-full">
           <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 h-auto">
             {Object.entries(ZOOM_LEVELS).map(([key, { label }]) => (
-              <TabsTrigger key={key} value={key} className="text-xs md:text-sm px-2 py-2 data-[state=active]:bg-background">
+              <TabsTrigger key={key} value={key} className="text-xs md:text-sm px-2 py-2">
                 {label}
               </TabsTrigger>
             ))}
