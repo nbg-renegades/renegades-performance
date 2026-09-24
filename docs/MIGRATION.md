@@ -101,11 +101,13 @@ These drove the plan. Re-check any that look surprising before acting on them.
 - **Data:** 32 users, 32 identities, 32 profiles, 41 roles, 32 positions, 262 entries. No
   orphans, all three roles present, every user has a `$2a$10$` bcrypt hash - the same format
   and length this GoTrue version produces itself.
-- **Auth rows are portable; the hashes themselves are NOT yet confirmed.** A restored user
-  accepted `reset-user-password` and then logged in keeping its UUID, which exercises every
-  `auth.users` column GoTrue reads. Verifying an *original* Lovable digest still needs someone
-  who knows their pre-migration password - see "Open question" below. Until then, assume the
-  fallback (bulk reset via `reset-user-password`) may be needed at cutover.
+- **Password hashes survive the move.** An account whose digest was never touched logged in
+  through the app with its real pre-migration password, and GoTrue recorded it as a genuine
+  `login` in `auth.audit_log_entries` with a fresh `auth.sessions` row and an updated
+  `last_sign_in_at` - an authentication, not a reused session. That same digest is
+  byte-identical in production. **Nobody needs a password reset at cutover.** Separately, a
+  restored user accepted `reset-user-password` and logged in keeping its UUID, so that
+  fallback works too if it is ever wanted.
 - **All seven edge functions** ran against the restored data with real user JWTs, and refused
   non-admins where they should. RLS checked per role: a player saw 7 entries and 1 profile, an
   admin 262 and 32, `anon` none.
@@ -146,29 +148,21 @@ It reuses the stored bundle rather than rebuilding, so it does *not* ship uncomm
 committed source - B3 still needed its own explicit deploy. Worth knowing before reading
 anything into a version number.
 
-### Open question: do the original password hashes verify?
+### On `check-hash.sh` disagreeing with a working login
 
-Unresolved as of 2026-09-24. It does **not** block Phase 3, but it decides what the club is
-told at cutover: "log in with your old password" or "here is a new one".
+`check-hash.sh` compares a typed password against the stored hash with `extensions.crypt`.
+During Phase 3 it reported "no match" for an account that could nonetheless log in through the
+app moments later. The hash was fine; the password typed at the terminal was not the one the
+browser sent - a password manager filling the form is the obvious way for those to differ.
 
-What is established:
+Worth remembering before reading a "no match" as evidence of anything: it only ever tells you
+about the string that was typed. The audit log is the stronger signal, because GoTrue writes
+`login` there only after it has verified the digest itself:
 
-- The restored `auth.users` row for a test account is **byte-identical** in production and in
-  the rehearsal - same id, `instance_id`, `aud`, `role`, `$2a$10$` hash, confirmed, not banned,
-  not deleted. Its `auth.identities` row matches too. So nothing was lost or altered in transit.
-- `extensions.crypt(password, hash)` is a faithful stand-in for GoTrue's own comparison: it
-  returns MATCH for a hash GoTrue generated and "no match" for a wrong password (self-tested).
-- Against that test account, the password tried returns **"no match" in both** production and
-  the rehearsal, and a production login returns `invalid_credentials`.
-
-Since both databases agree, this is not a migration defect either way. The remaining
-possibilities are that the password tried is simply not the right one - that account's last
-successful sign-in on Lovable was 2026-01-28, eight months earlier - or that Lovable stored
-digests some other way, which the identical hashes make unlikely.
-
-To settle it, someone who is sure of their password runs
-`renegades-migration/check-hash.sh <email>`; MATCH means the hashes carried over and no resets
-are needed. A quicker equivalent: log in at the rehearsal app while it is still up.
+```sh
+psql "$DB" -c "select created_at, payload->>'action', payload->>'actor_username'
+               from auth.audit_log_entries order by created_at desc limit 5;"
+```
 
 ### Rehearsal artifacts
 
