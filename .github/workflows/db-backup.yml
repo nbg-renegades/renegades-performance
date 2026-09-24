@@ -1,0 +1,69 @@
+# The Free plan takes no backups, and this project now holds the only copy of the club's
+# performance history and its auth users. A nightly dump to a build artifact is the whole
+# disaster-recovery story until the project moves to Pro.
+#
+# It doubles as a second keepalive: connecting to Postgres every night resets the ~7-day
+# inactivity clock independently of the homepage's keepalive workflow, which once failed
+# six days in a row unnoticed.
+#
+# Needs one repository secret, SUPABASE_DB_URL: the **session pooler** URI from
+# Supabase → Connect. The direct database host is IPv6-only and GitHub runners have no
+# IPv6, so the direct URI times out.
+#
+# The dump covers the shared project as a whole, so it also protects the homepage's
+# public.heartbeat table and its Edge Function configuration.
+
+name: Database backup
+
+on:
+  schedule:
+    # 03:22 UTC daily — off the top of the hour, where GitHub drops scheduled runs under
+    # load, and well clear of the homepage keepalive at 04:17.
+    - cron: '22 3 * * *'
+  workflow_dispatch:
+
+# A second run dumping into the same paths would interleave; queue them instead.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump roles, schema and data
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+
+          # Three passes, because `db dump` emits one section at a time. Restoring means
+          # replaying them in this order into an empty project.
+          supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f backup/01-roles.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL"             -f backup/02-schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy -f backup/03-data.sql
+
+          # An empty or truncated dump exits 0, so check the output rather than trusting it.
+          for f in backup/*.sql; do
+            size=$(wc -c < "$f")
+            echo "$f: $size bytes"
+            if [ "$size" -lt 1024 ]; then
+              echo "::error::$f is only $size bytes - the dump looks empty or truncated."
+              exit 1
+            fi
+          done
+
+      - name: Upload backup
+        uses: actions/upload-artifact@v4
+        with:
+          # The data dump contains members' personal data and auth password hashes.
+          # Artifacts are private to repo collaborators; do not attach them elsewhere.
+          name: supabase-backup-${{ github.run_id }}
+          path: backup/
+          retention-days: 30
+          if-no-files-found: error
