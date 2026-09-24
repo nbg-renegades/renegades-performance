@@ -7,6 +7,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  METRICS,
+  METRIC_OPTIONS,
+  metricLabel,
+  metricLabelWithUnit,
+  metricUnit,
+  type MetricType,
+} from "@/lib/metrics";
 
 interface PlayerPerformanceChartProps {
   currentUserId: string;
@@ -15,7 +23,6 @@ interface PlayerPerformanceChartProps {
 }
 
 type ZoomLevel = '1m' | '3m' | '6m' | '12m' | '18m' | '3y';
-type MetricType = 'vertical_jump' | 'jump_gather' | '30yd_dash' | '3_cone_drill' | 'shuttle_5_10_5' | 'pushups_1min';
 
 const ZOOM_LEVELS: Record<ZoomLevel, { label: string; months: number }> = {
   '1m': { label: '1 Month', months: 1 },
@@ -24,15 +31,6 @@ const ZOOM_LEVELS: Record<ZoomLevel, { label: string; months: number }> = {
   '12m': { label: '12 Months', months: 12 },
   '18m': { label: '18 Months', months: 18 },
   '3y': { label: '3 Years', months: 36 },
-};
-
-const METRICS: Record<MetricType, { label: string; unit: string }> = {
-  vertical_jump: { label: 'Vertical Jump', unit: 'cm' },
-  jump_gather: { label: 'Jump w. Gather Step', unit: 'cm' },
-  '30yd_dash': { label: '30-Yard Dash', unit: 's' },
-  '3_cone_drill': { label: '3-Cone Drill', unit: 's' },
-  shuttle_5_10_5: { label: '5-10-5 Shuttle', unit: 's' },
-  pushups_1min: { label: 'Push-Ups (1 Min AMRAP)', unit: 'reps' },
 };
 
 interface Player {
@@ -201,9 +199,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-popover z-50">
-                {Object.entries(METRICS).map(([key, { label, unit }]) => (
-                  <SelectItem key={key} value={key}>
-                    {label} [{unit}]
+                {METRIC_OPTIONS.map((m) => (
+                  <SelectItem key={m.key} value={m.key}>
+                    {metricLabelWithUnit(m.key)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -251,10 +249,10 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                 />
                 <YAxis
                   domain={yDomain}
-                  allowDecimals={METRICS[selectedMetric].unit === 's'}
+                  allowDecimals={METRICS[selectedMetric].precision > 0}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
                   label={{
-                    value: `${METRICS[selectedMetric].label} [${METRICS[selectedMetric].unit}]`, 
+                    value: metricLabelWithUnit(selectedMetric), 
                     angle: -90, 
                     position: 'insideLeft',
                     style: { fill: 'hsl(var(--foreground))', fontSize: isMobile ? 10 : 12 }
@@ -267,7 +265,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                     borderRadius: '6px',
                     color: 'hsl(var(--popover-foreground))'
                   }}
-                  formatter={(value: any) => [`${value} ${METRICS[selectedMetric].unit}`, METRICS[selectedMetric].label]}
+                  formatter={(value: any) => [`${value} ${metricUnit(selectedMetric)}`, metricLabel(selectedMetric)]}
                   labelFormatter={(label: any) =>
                     new Date(label as number).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
                   }
@@ -282,7 +280,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                   strokeWidth={2}
                   dot={{ fill: 'hsl(var(--primary))', r: isMobile ? 4 : 5, strokeWidth: 2 }}
                   activeDot={{ r: isMobile ? 6 : 8, strokeWidth: 0 }}
-                  name={METRICS[selectedMetric].label}
+                  name={metricLabel(selectedMetric)}
                   isAnimationActive={false}
                 />
               </LineChart>

@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, AlertCircle, Clock, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { METRIC_LABELS, METRIC_UNITS, type MetricType, getAllMetricTypes } from "@/lib/performanceUtils";
+import { type MetricType, getAllMetricTypes } from "@/lib/performanceUtils";
+import { bestOf, formatMetricValue, metricLabel, metricUnit } from "@/lib/metrics";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface MetricStatus {
@@ -154,11 +155,7 @@ const Dashboard = () => {
         const lastEntryDate = new Date(latestEntry.entry_date);
         const isOutdated = lastEntryDate < threeMonthsAgo;
         
-        // Calculate best value
-        const isLowerBetter = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'].includes(metric);
-        const bestValue = isLowerBetter
-          ? Math.min(...metricEntries.map(e => e.value))
-          : Math.max(...metricEntries.map(e => e.value));
+        const bestValue = bestOf(metric, metricEntries.map(e => e.value));
 
         statuses.push({
           metric,
@@ -256,9 +253,9 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 gap-3">
                 {teamBestAllTime.map(m => (
                   <div key={m.metric} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
-                    <span className="text-sm font-medium">{METRIC_LABELS[m.metric]}</span>
+                    <span className="text-sm font-medium">{metricLabel(m.metric)}</span>
                     <span className="text-lg font-bold text-primary">
-                      {m.value.toFixed(2)} <span className="text-sm text-muted-foreground">[{METRIC_UNITS[m.metric]}]</span>
+                      {formatMetricValue(m.metric, m.value)} <span className="text-sm text-muted-foreground">[{metricUnit(m.metric)}]</span>
                     </span>
                   </div>
                 ))}
@@ -280,9 +277,9 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 gap-3">
                 {teamBestSixMonths.map(m => (
                   <div key={m.metric} className="flex justify-between items-center p-3 rounded-lg bg-muted/50">
-                    <span className="text-sm font-medium">{METRIC_LABELS[m.metric]}</span>
+                    <span className="text-sm font-medium">{metricLabel(m.metric)}</span>
                     <span className="text-lg font-bold text-primary">
-                      {m.value.toFixed(2)} <span className="text-sm text-muted-foreground">[{METRIC_UNITS[m.metric]}]</span>
+                      {formatMetricValue(m.metric, m.value)} <span className="text-sm text-muted-foreground">[{metricUnit(m.metric)}]</span>
                     </span>
                   </div>
                 ))}
@@ -303,7 +300,7 @@ const Dashboard = () => {
                 <strong>Missing entries:</strong>{' '}
                 {metricStatuses
                   .filter(m => m.status === 'missing')
-                  .map(m => METRIC_LABELS[m.metric])
+                  .map(m => metricLabel(m.metric))
                   .join(', ')}
               </AlertDescription>
             </Alert>
@@ -317,7 +314,7 @@ const Dashboard = () => {
                 <strong>Outdated entries ({">"} 3 months):</strong>{' '}
                 {metricStatuses
                   .filter(m => m.status === 'outdated')
-                  .map(m => METRIC_LABELS[m.metric])
+                  .map(m => metricLabel(m.metric))
                   .join(', ')}
               </AlertDescription>
             </Alert>
@@ -340,10 +337,10 @@ const Dashboard = () => {
                     .map(m => (
                       <div key={m.metric} className="p-3 rounded-lg bg-muted/50 space-y-1">
                         <div className="text-sm font-medium text-muted-foreground">
-                          {METRIC_LABELS[m.metric]}
+                          {metricLabel(m.metric)}
                         </div>
                         <div className="text-xl font-bold text-primary">
-                          {m.bestValue?.toFixed(2)} <span className="text-sm text-muted-foreground">[{METRIC_UNITS[m.metric]}]</span>
+                          {m.bestValue === undefined ? "-" : formatMetricValue(m.metric, m.bestValue)} <span className="text-sm text-muted-foreground">[{metricUnit(m.metric)}]</span>
                         </div>
                         {m.status === 'outdated' && (
                           <Badge variant="outline" className="text-xs">

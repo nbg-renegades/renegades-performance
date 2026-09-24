@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { isLowerBetter } from '../_shared/metrics.ts';
 
 interface MetricAverage {
   metric_type: string;
@@ -98,7 +99,7 @@ Deno.serve(async (req) => {
           latestEntries.set(key, entry);
         } else if (currentDate.getTime() === existingDate.getTime()) {
           // Same date - keep the better value
-          const isTimeBased = ['shuttle_5_10_5', '30yd_dash', '3_cone_drill'].includes(entry.metric_type);
+          const isTimeBased = isLowerBetter(entry.metric_type);
           const isBetter = isTimeBased 
             ? entry.value < existing.value  // Lower is better for time
             : entry.value > existing.value; // Higher is better for distance/reps

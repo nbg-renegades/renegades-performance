@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { z } from 'npm:zod@4.4.3';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { METRIC_KEYS, isLowerBetter as lowerIsBetterMetric } from '../_shared/metrics.ts';
 
 const requestSchema = z.object({
   mode: z.enum(['best', 'position', 'offense', 'defense', 'compare']),
@@ -60,16 +61,7 @@ Deno.serve(async (req) => {
     // Use service role client to bypass RLS for aggregation
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const allMetrics = [
-      'vertical_jump',
-      'jump_gather',
-      '30yd_dash',
-      '3_cone_drill',
-      'shuttle_5_10_5',
-      'pushups_1min'
-    ];
-
-    const lowerIsBetter = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'];
+    const allMetrics = METRIC_KEYS;
 
     // Fetch all performance data for normalization context
     // Get best daily entries (only one entry per player per metric per day)
@@ -94,7 +86,7 @@ Deno.serve(async (req) => {
         bestEntriesMap.set(key, entry);
       } else {
         // For time metrics, lower is better; for others, higher is better
-        const isLowerBetter = lowerIsBetter.includes(entry.metric_type);
+        const isLowerBetter = lowerIsBetterMetric(entry.metric_type);
         const shouldReplace = isLowerBetter 
           ? entry.value < existing.value 
           : entry.value > existing.value;
@@ -170,7 +162,7 @@ Deno.serve(async (req) => {
 
     // Calculate best for each metric using the already-processed allData
     for (const metric of allMetrics) {
-      const isLowerBetter = lowerIsBetter.includes(metric);
+      const isLowerBetter = lowerIsBetterMetric(metric);
 
       // Filter allData (which is already best-daily) by metric and player IDs
       let filteredEntries = filteredAllData.filter((e: any) => e.metric_type === metric);

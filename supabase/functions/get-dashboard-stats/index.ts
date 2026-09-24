@@ -1,7 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1'
 import { getCorsHeaders } from '../_shared/cors.ts'
-
-const LOWER_IS_BETTER = ['30yd_dash', '3_cone_drill', 'shuttle_5_10_5'];
+import { isLowerBetter as lowerIsBetter } from '../_shared/metrics.ts'
 
 interface DashboardStats {
   totalPlayers: number;
@@ -131,7 +130,7 @@ Deno.serve(async (req) => {
       entries?.forEach(entry => {
         const metric = entry.metric_type;
         const value = entry.value;
-        const isLowerBetter = LOWER_IS_BETTER.includes(metric);
+        const isLowerBetter = lowerIsBetter(metric);
         
         const currentBest = metricMap.get(metric);
         if (currentBest === undefined) {

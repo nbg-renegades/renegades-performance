@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { getCorsHeaders } from '../_shared/cors.ts';
+import { METRIC_KEYS, isLowerBetter, metricLabel } from '../_shared/metrics.ts';
 
 interface MetricNeighborhood {
   metric_type: string;
@@ -75,16 +76,6 @@ Deno.serve(async (req) => {
 
   const profileMap = new Map(profiles?.map(p => [p.id, `${p.first_name} ${p.last_name}`]) || []);
 
-  const timeBasedMetrics = ['shuttle_5_10_5', '30yd_dash', '3_cone_drill'];
-
-  const metricNames: Record<string, string> = {
-    'shuttle_5_10_5': '5-10-5 Shuttle',
-    'vertical_jump': 'Vertical Jump',
-    'jump_gather': 'Jump w. Gather Step',
-    'pushups_1min': 'Push-Ups (1 Min AMRAP)',
-    '30yd_dash': '30-Yard Dash',
-    '3_cone_drill': '3-Cone Drill',
-  };
 
   // Get latest entry per player per metric (best value per day)
   const latestEntries = new Map<string, any>();
@@ -103,7 +94,7 @@ Deno.serve(async (req) => {
         latestEntries.set(key, entry);
       } else if (currentDate.getTime() === existingDate.getTime()) {
         // Same date - keep the better value
-        const isTimeBased = timeBasedMetrics.includes(entry.metric_type);
+        const isTimeBased = isLowerBetter(entry.metric_type);
         const isBetter = isTimeBased 
           ? entry.value < existing.value  // Lower is better for time
           : entry.value > existing.value; // Higher is better for distance/reps
@@ -118,8 +109,9 @@ Deno.serve(async (req) => {
     const results: MetricNeighborhood[] = [];
 
     // Process each metric type
-    for (const [metricKey, metricName] of Object.entries(metricNames)) {
-      const isTimeBased = timeBasedMetrics.includes(metricKey);
+    for (const metricKey of METRIC_KEYS) {
+      const metricName = metricLabel(metricKey);
+      const isTimeBased = isLowerBetter(metricKey);
       
       // Get all player values for this metric
       const metricEntries = Array.from(latestEntries.values())

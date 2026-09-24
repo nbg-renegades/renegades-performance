@@ -15,6 +15,14 @@ import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
 import { PerformanceNeighborhood } from "@/components/PerformanceNeighborhood";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 import { performanceEntrySchema } from "@/lib/validation";
+import {
+  METRICS,
+  METRIC_OPTIONS,
+  isMetricType,
+  metricLabel,
+  metricLabelWithUnit,
+  metricUnit,
+} from "@/lib/metrics";
 import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -214,15 +222,6 @@ const Performance = () => {
       return;
     }
 
-    const unitMap: Record<string, string> = {
-      "vertical_jump": "cm",
-      "jump_gather": "cm",
-      "30yd_dash": "s",
-      "3_cone_drill": "s",
-      "shuttle_5_10_5": "s",
-      "pushups_1min": "reps",
-    };
-
     try {
       const { error } = await supabase
         .from("performance_entries")
@@ -230,7 +229,7 @@ const Performance = () => {
           player_id: playerId,
           metric_type: metricType as any,
           value: value,
-          unit: unitMap[metricType],
+          unit: metricUnit(metricType),
           entry_date: entryDate,
           created_by: currentUserId,
         }]);
@@ -349,7 +348,7 @@ const Performance = () => {
     const who = entry.player
       ? `${entry.player.first_name} ${entry.player.last_name}`
       : "this player";
-    const what = metricDisplayNames[entry.metric_type] ?? entry.metric_type;
+    const what = metricLabel(entry.metric_type);
     return `${what} for ${who}, ${entry.value} ${entry.unit} on ${new Date(entry.entry_date).toLocaleDateString()}`;
   };
 
@@ -357,15 +356,6 @@ const Performance = () => {
     if (userRole === "admin" || userRole === "coach") return true;
     if (userRole === "player" && entry.player_id === currentUserId) return true;
     return false;
-  };
-
-  const metricDisplayNames: Record<string, string> = {
-    "vertical_jump": "Vertical Jump [cm]",
-    "jump_gather": "Jump w. Gather Step [cm]",
-    "30yd_dash": "30-Yard Dash [s]",
-    "3_cone_drill": "3-Cone Drill [s]",
-    "shuttle_5_10_5": "5-10-5 Shuttle [s]",
-    "pushups_1min": "Push-Ups (1 Min AMRAP) [reps]",
   };
 
   const canAddEntry = userRole === "coach" || userRole === "admin" || userRole === "player";
@@ -442,7 +432,7 @@ const Performance = () => {
           entry.entry_date,
           player?.first_name || "",
           player?.last_name || "",
-          metricDisplayNames[entry.metric_type],
+          metricLabelWithUnit(entry.metric_type),
           entry.value,
           entry.unit
         ].join(","));
@@ -543,9 +533,9 @@ const Performance = () => {
                       <SelectValue placeholder="Select metric" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover z-50">
-                      {Object.entries(metricDisplayNames).map(([key, label]) => (
-                        <SelectItem key={key} value={key}>
-                          {label}
+                      {METRIC_OPTIONS.map((m) => (
+                        <SelectItem key={m.key} value={m.key}>
+                          {metricLabelWithUnit(m.key)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -561,7 +551,7 @@ const Performance = () => {
                     id="value"
                     name="value"
                     type="number"
-                    step={(["30yd_dash", "3_cone_drill", "shuttle_5_10_5"].includes(selectedMetric) ? 0.01 : 1) as any}
+                    step={isMetricType(selectedMetric) ? METRICS[selectedMetric].step : 0.01}
                     min={0}
                     required
                   />
@@ -618,9 +608,9 @@ const Performance = () => {
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
                   <SelectItem value="all">All Metrics</SelectItem>
-                  {Object.entries(metricDisplayNames).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
+                  {METRIC_OPTIONS.map((m) => (
+                    <SelectItem key={m.key} value={m.key}>
+                      {metricLabelWithUnit(m.key)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -686,7 +676,7 @@ const Performance = () => {
                       )}
                     </p>
                     <p className="text-xs sm:text-sm text-muted-foreground">
-                      {metricDisplayNames[entry.metric_type]}
+                      {metricLabelWithUnit(entry.metric_type)}
                     </p>
                   </div>
                   <div className="flex items-center justify-between sm:justify-end gap-3">
