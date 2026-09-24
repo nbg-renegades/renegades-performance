@@ -62,8 +62,13 @@ export function AppSidebar({ userRole, onViewTerms }: AppSidebarProps) {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // No width class on <Sidebar>: className lands on the fixed sidebar only, not on the
+  // spacer that reserves its space, so the two silently disagreed - w-14 (56px) against a
+  // 48px spacer when collapsed, which is what pushed the sidebar over the content. The
+  // width now comes from --sidebar-width / --sidebar-width-icon (set in MainLayout), which
+  // both elements read.
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-60"} collapsible="icon">
+    <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <img src={logo} alt="Renegades Logo" className="h-10 w-10 object-contain" />

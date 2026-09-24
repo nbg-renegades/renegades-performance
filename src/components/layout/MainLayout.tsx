@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Navigate, Outlet } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -118,7 +118,19 @@ const MainLayout = () => {
         onAccept={handleTermsAccept}
         canCancel={false}
       />
-      <SidebarProvider>
+      {/* The sidebar's width lives in these two variables. The Sidebar component reserves
+          space with a spacer div sized from them, while the visible sidebar is position:
+          fixed, so anything that sets a width on one and not the other makes the sidebar
+          overlap the content or leave a dead strip beside it. 15rem/3.5rem keep the sizes
+          AppSidebar used to hard-code as w-60/w-14. */}
+      <SidebarProvider
+        style={
+          {
+            "--sidebar-width": "15rem",
+            "--sidebar-width-icon": "3.5rem",
+          } as CSSProperties
+        }
+      >
         <div className="min-h-screen flex w-full bg-background">
           <AppSidebar userRole={userRole} onViewTerms={() => setShowTermsDialog(true)} />
           <div className="flex-1 flex flex-col">
