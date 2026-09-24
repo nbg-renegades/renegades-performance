@@ -11,11 +11,16 @@ Requires **Node 24+** (see `.nvmrc`) and npm.
 git clone https://github.com/nbg-renegades/renegades-performance.git
 cd renegades-performance
 
-npm ci        # install dependencies
-npm run dev   # dev server on http://localhost:8080
+pnpm install  # install dependencies
+pnpm dev      # dev server on http://localhost:8080
 ```
 
-Other scripts: `npm run build`, `npm run typecheck`, `npm run lint`.
+Other scripts: `pnpm build`, `pnpm typecheck`, `pnpm lint`.
+
+The package manager is pnpm, pinned by the `packageManager` field in `package.json`; run
+`corepack enable` once and the right version is used automatically. `pnpm-workspace.yaml`
+sets `minimumReleaseAge` to 7200 minutes (5 days), so a newly published version is not
+installed until it has been out long enough for a compromised release to be noticed.
 
 This project was originally scaffolded with Lovable. It is no longer wired to it — the
 `lovable-tagger` plugin has been removed and the app deploys via Netlify, so editing
@@ -38,7 +43,7 @@ Functions, Realtime) runs on **Supabase**.
 
 ### Frontend (Netlify)
 
-Build settings come from [`netlify.toml`](./netlify.toml) — `npm run build`, publish
+Build settings come from [`netlify.toml`](./netlify.toml) — `pnpm build`, publish
 `dist`, with a catch-all rewrite to `index.html` so `BrowserRouter` deep links work.
 
 1. In Netlify, *Add new site → Import an existing project* and pick this repo.
@@ -48,7 +53,7 @@ Build settings come from [`netlify.toml`](./netlify.toml) — `npm run build`, p
 Set `VITE_SUPABASE_PROJECT_ID`, `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
 under *Site configuration → Environment variables*. They are publishable by design (the
 anon key is safe in a browser bundle; RLS is what protects the data), but they are not
-committed: `.env` is git-ignored so a local `npm run dev` can never silently write to
+committed: `.env` is git-ignored so a local `pnpm dev` can never silently write to
 production. Copy [`.env.example`](./.env.example) to `.env` to develop.
 
 Vite does not let `.env` override variables that are already set in the environment, so

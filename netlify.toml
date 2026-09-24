@@ -1,5 +1,9 @@
+# Netlify picks pnpm because pnpm-lock.yaml is committed, and takes the exact version from
+# the packageManager field in package.json via corepack - so the version lives in one place
+# rather than being pinned again here. Its install is --frozen-lockfile, which is what we
+# want: a build should fail rather than quietly resolve something the lockfile does not name.
 [build]
-  command = "npm run build"
+  command = "pnpm build"
   publish = "dist"
 
 [build.environment]

@@ -222,7 +222,7 @@ the dashboard - which were deliberately dropped rather than merged.
   `.env.example` with the `renegades-eu` URL, the project ID and a placeholder key.
 - **A5 [perf] Regenerate `src/integrations/supabase/types.ts`** from `renegades-eu` after Phase 3's
   push (`supabase gen types typescript --project-id ekmdcqcjvodsnaqpsgun`). It will now also list
-  `heartbeat`, which is expected. Then run `npm run lint`, `npx tsc --noEmit` and `npm run build`.
+  `heartbeat`, which is expected. Then run `pnpm lint`, `pnpm typecheck` and `pnpm build`.
 - **A6 [perf] Drift fixes.** Add any migrations that Phase 2's drift gate asks for. They go in this
   same PR if Phase 2 runs first, otherwise in a follow-up.
 - **A7 [perf] README.** Add a section saying this repo owns the schema of the shared project,
