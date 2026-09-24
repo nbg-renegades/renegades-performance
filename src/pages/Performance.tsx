@@ -18,6 +18,8 @@ import { performanceEntrySchema } from "@/lib/validation";
 import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+const ENTRIES_PAGE_SIZE = 25;
+
 interface PerformanceEntry {
   id: string;
   entry_date: string;
@@ -50,10 +52,17 @@ const Performance = () => {
   const [filterPosition, setFilterPosition] = useState<string>("all");
   const [filterUnit, setFilterUnit] = useState<string>("all");
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(ENTRIES_PAGE_SIZE);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Changing a filter produces a different list, so "load more" should start over rather
+  // than keep showing however far the previous list had been expanded.
+  useEffect(() => {
+    setVisibleCount(ENTRIES_PAGE_SIZE);
+  }, [filterMetric, filterPlayer, filterPosition, filterUnit]);
 
   // Debounced refresh to prevent rapid successive calls
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
@@ -376,6 +385,13 @@ const Performance = () => {
     return matchesMetric && matchesPlayer && matchesPosition && matchesUnit;
   });
 
+  // The list used to render every entry there is. At 263 entries that made this page
+  // ~26,000px tall on a desktop and ~38,000px on a phone - roughly 29 and 45 screens -
+  // and it grew by one card per measurement forever. A card is only worth its ~93px for
+  // the handful you actually came to look at.
+  const visibleEntries = filteredEntries.slice(0, visibleCount);
+  const hasMoreEntries = filteredEntries.length > visibleEntries.length;
+
   const handleExportCSV = async () => {
     try {
       // Fetch all performance entries with player details
@@ -644,7 +660,7 @@ const Performance = () => {
                   : "No entries match your filters. Try adjusting your selection."}
               </p>
             ) : (
-              filteredEntries.map((entry) => (
+              visibleEntries.map((entry) => (
                 <div
                   key={entry.id}
                   className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-3"
@@ -694,6 +710,23 @@ const Performance = () => {
               ))
             )}
           </div>
+
+          {filteredEntries.length > 0 && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {visibleEntries.length} of {filteredEntries.length}
+                {filteredEntries.length === 1 ? " entry" : " entries"}
+              </p>
+              {hasMoreEntries && (
+                <Button
+                  variant="outline"
+                  onClick={() => setVisibleCount((c) => c + ENTRIES_PAGE_SIZE)}
+                >
+                  Load {Math.min(ENTRIES_PAGE_SIZE, filteredEntries.length - visibleEntries.length)} more
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
