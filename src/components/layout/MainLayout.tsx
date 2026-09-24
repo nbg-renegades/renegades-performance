@@ -133,7 +133,12 @@ const MainLayout = () => {
       >
         <div className="min-h-screen flex w-full bg-background">
           <AppSidebar userRole={userRole} onViewTerms={() => setShowTermsDialog(true)} />
-          <div className="flex-1 flex flex-col">
+          {/* min-w-0: a flex item defaults to min-width:auto, so this column could not
+              shrink below its widest child and pushed the whole page sideways instead.
+              That is what made /users scroll horizontally by 18px on a phone, and it would
+              do the same for any wide table. With min-w-0 the overflow stays inside the
+              element that owns it. */}
+          <div className="flex-1 flex flex-col min-w-0">
             <header className="h-14 flex items-center border-b border-border px-4 md:px-6 bg-card">
               <SidebarTrigger className="mr-2 md:mr-4" />
               <img src={logo} alt="Logo" className="h-8 w-8 mr-3" />

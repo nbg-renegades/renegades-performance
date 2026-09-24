@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, TrendingUp, Pencil, Trash2, Download, Users } from "lucide-react";
 import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { BatchCreateDialog } from "@/components/BatchCreateDialog";
+import { PerformanceEntriesTable } from "@/components/PerformanceEntriesTable";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
@@ -25,8 +26,6 @@ import {
 } from "@/lib/metrics";
 import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-const ENTRIES_PAGE_SIZE = 25;
 
 interface PerformanceEntry {
   id: string;
@@ -60,17 +59,10 @@ const Performance = () => {
   const [filterPosition, setFilterPosition] = useState<string>("all");
   const [filterUnit, setFilterUnit] = useState<string>("all");
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(ENTRIES_PAGE_SIZE);
 
   useEffect(() => {
     fetchData();
   }, []);
-
-  // Changing a filter produces a different list, so "load more" should start over rather
-  // than keep showing however far the previous list had been expanded.
-  useEffect(() => {
-    setVisibleCount(ENTRIES_PAGE_SIZE);
-  }, [filterMetric, filterPlayer, filterPosition, filterUnit]);
 
   // Debounced refresh to prevent rapid successive calls
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
@@ -360,8 +352,9 @@ const Performance = () => {
 
   const canAddEntry = userRole === "coach" || userRole === "admin" || userRole === "player";
 
-  // Filter entries based on selected filters
-  const filteredEntries = entries.filter(entry => {
+  // Memoised so its identity is stable between renders: the table resets its page
+  // whenever this list changes, and a fresh array every render would reset it always.
+  const filteredEntries = useMemo(() => entries.filter(entry => {
     const matchesMetric = filterMetric === "all" || entry.metric_type === filterMetric;
     const matchesPlayer = filterPlayer === "all" || entry.player_id === filterPlayer;
     
@@ -383,15 +376,9 @@ const Performance = () => {
     }
     
     return matchesMetric && matchesPlayer && matchesPosition && matchesUnit;
-  });
+  }), [entries, filterMetric, filterPlayer, filterPosition, filterUnit]);
 
-  // The list used to render every entry there is. At 263 entries that made this page
-  // ~26,000px tall on a desktop and ~38,000px on a phone - roughly 29 and 45 screens -
-  // and it grew by one card per measurement forever. A card is only worth its ~93px for
-  // the handful you actually came to look at.
-  const visibleEntries = filteredEntries.slice(0, visibleCount);
   const deletingEntry = entries.find((e) => e.id === deletingEntryId) ?? null;
-  const hasMoreEntries = filteredEntries.length > visibleEntries.length;
 
   const handleExportCSV = async () => {
     try {
@@ -650,91 +637,33 @@ const Performance = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex-1">
+                  {/* filterUnit had state and a live predicate but no control at all, so
+                      the offense/defense split was unreachable. */}
+                  <Label htmlFor="filter-unit" className="text-sm mb-2 block">Filter by Unit</Label>
+                  <Select value={filterUnit} onValueChange={setFilterUnit}>
+                    <SelectTrigger id="filter-unit" className="bg-background">
+                      <SelectValue placeholder="All Units" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="all">All Units</SelectItem>
+                      <SelectItem value="offense">Offense</SelectItem>
+                      <SelectItem value="defense">Defense</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </>
             )}
           </div>
-          <div className="space-y-3">
-            {filteredEntries.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                {entries.length === 0 
-                  ? "No performance entries yet. Add your first entry to get started!"
-                  : "No entries match your filters. Try adjusting your selection."}
-              </p>
-            ) : (
-              visibleEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors gap-3"
-                >
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm sm:text-base">
-                      {entry.player?.first_name} {entry.player?.last_name}
-                      {entry.player?.position && entry.player.position !== 'unassigned' && (
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">
-                          ({POSITION_LABELS[entry.player.position]})
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      {metricLabelWithUnit(entry.metric_type)}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end gap-3">
-                    <div className="text-left sm:text-right">
-                      <p className="text-xl sm:text-2xl font-bold text-primary">
-                        {entry.value} <span className="text-xs sm:text-sm text-muted-foreground">{entry.unit}</span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(entry.entry_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    {canEditEntry(entry) && (
-                      <div className="flex gap-2">
-                      {/* Icon-only buttons need their own name: a screen reader otherwise
-                          announces a run of identical "button"s, half of which delete data.
-                          Naming them after the entry also tells the two rows apart. */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Edit ${describeEntry(entry)}`}
-                        title="Edit entry"
-                        onClick={() => setEditingEntry(entry)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`Delete ${describeEntry(entry)}`}
-                        title="Delete entry"
-                        onClick={() => setDeletingEntryId(entry.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {filteredEntries.length > 0 && (
-            <div className="mt-4 flex flex-col items-center gap-2">
-              <p className="text-xs text-muted-foreground">
-                Showing {visibleEntries.length} of {filteredEntries.length}
-                {filteredEntries.length === 1 ? " entry" : " entries"}
-              </p>
-              {hasMoreEntries && (
-                <Button
-                  variant="outline"
-                  onClick={() => setVisibleCount((c) => c + ENTRIES_PAGE_SIZE)}
-                >
-                  Load {Math.min(ENTRIES_PAGE_SIZE, filteredEntries.length - visibleEntries.length)} more
-                </Button>
-              )}
-            </div>
-          )}
+          <PerformanceEntriesTable
+            entries={filteredEntries}
+            totalCount={entries.length}
+            showPlayerColumn={userRole === "coach" || userRole === "admin"}
+            canEdit={canEditEntry}
+            describeEntry={describeEntry}
+            onEdit={setEditingEntry}
+            onDelete={setDeletingEntryId}
+          />
         </CardContent>
       </Card>
 
