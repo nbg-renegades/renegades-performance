@@ -1,0 +1,4 @@
+# Supabase CLI local state. `supabase link` writes the linked project ref and a cached
+# copy of remote settings here; none of it belongs in git.
+.branches
+.temp
