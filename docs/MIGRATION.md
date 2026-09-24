@@ -1,6 +1,7 @@
 # Migration: off Lovable → Supabase (`renegades-eu`) + Netlify
 
-Status: **planned, not started.** v1 drafted 2026-08-06, v3 2026-09-24. Earlier versions are in git history.
+Status: **Phases 0-2 done, Phase 3 waiting on H4/H6.** v1 drafted 2026-08-06, v3 2026-09-24.
+Earlier versions are in git history. See [Progress](#progress) for what has actually run.
 
 This plan spans **two repositories**:
 
@@ -71,6 +72,69 @@ These drove the plan. Re-check any that look surprising before acting on them.
 9. **home's keepalive failed for 6 days in a row** (2026-09-18 → 09-22, HTTP 401 "Invalid API
    key") before being fixed on 09-23. Free projects pause after about 7 days without database
    activity. Once perf's data lives here, that margin matters (see A8).
+
+## Progress
+
+| Phase | State |
+|---|---|
+| 0 — Stop Lovable (human) | done: Lovable disconnected, site unpublished, export downloaded |
+| 1 — Code | done: A1-A4, A6-A8 and B1-B3 merged to `main` in both repos. A9 partial |
+| 2 — Local rehearsal | done, drift gate clean, verification gate passed, app exercised |
+| 3 — Production | blocked on H4 (dashboard settings) and H6 (`SUPABASE_DB_URL`) |
+| 4 — Cutover | not started |
+| 5 — Decommission | not started |
+
+### What Phase 2 settled
+
+- **Export format:** pg_dump custom archive, 665 TOC entries, compressed with zstd, taken from
+  PG 17.6 by pg_dump 18.6. `pg_restore` 17.6 reads it fine. No pg client tools on this host, so
+  both scripts below borrow them from the local stack's Postgres container.
+- **Fact 6 confirmed, and it was the only drift.** Restoring the export's `public` schema into a
+  scratch database and dumping both sides with the *same* `pg_dump` (a raw diff of
+  `pg_restore` output against `supabase db dump` is unusable - they quote and order differently)
+  left exactly two differences: `heartbeat`, which is expected, and
+  `player_positions_player_id_unique`. That constraint is now A6.
+- **Fact 5 answered as far as it can be locally.** The local stack's inherited grants mask the
+  problem, so the rehearsal revoked every `public` privilege from `anon`, `authenticated` and
+  `service_role`, replayed A1 alone, and confirmed it restores exactly the access the app needs
+  while leaving `anon` with none. A1 therefore stands on its own on a hosted project.
+- **Data:** 32 users, 32 identities, 32 profiles, 41 roles, 32 positions, 262 entries. No
+  orphans, all three roles present, every user has a `$2a$10$` bcrypt hash - the same format
+  and length this GoTrue version produces itself.
+- **Auth rows are portable.** A restored user accepted `reset-user-password` and then logged in,
+  keeping its UUID, which exercises every `auth.users` column GoTrue reads. Only verifying an
+  *original* hash still needs a real password (see below).
+- **All seven edge functions** ran against the restored data with real user JWTs, and refused
+  non-admins where they should. RLS checked per role: a player saw 7 entries and 1 profile, an
+  admin 262 and 32, `anon` none.
+- **The app itself** was driven through the browser: login, dashboard, performance history,
+  benchmarks, user admin, and creating an entry that landed in Postgres as the `authenticated`
+  role through RLS.
+
+### Rehearsal artifacts
+
+Kept outside both repos in `~/Documents/Repositories/renegades-migration/`:
+
+- `restore-data.sh <export> <db-url> [container]` — the Phase 2 data load, reused verbatim in
+  Phase 3 so both runs are demonstrably the same operation.
+- `verify-data.sh <db-url> [container]` — the verification gate, non-zero exit on any failure.
+  It also asserts the `has_table_privilege` check from fact 5.
+- `rehearsal/` — a throwaway Supabase project on ports 55321-55324, because the default ports
+  were taken by another local stack. Delete it with `supabase stop --no-backup` when done.
+
+### Still open
+
+- **Real-password login** is the one rehearsal step that needs a human: it is the only way to
+  prove an *original* Lovable hash verifies. Everything around it passed, and the fallback
+  (bulk reset via `reset-user-password`) is unchanged.
+- **A9 is partial.** Four of the five `edit/edt-*` branches were fully merged and are deleted.
+  `edit/edt-67667683-e862-4df7-9849-aac070835d66` has two unmerged commits (English UI strings,
+  a `playerId` guard, and removing `PerformanceNeighborhood` from the dashboard) and is left
+  alone pending a decision.
+- **Pre-existing, not migration scope:** `get-player-neighborhood` authenticates the caller but
+  never checks that `player_id` is their own, and it queries with the service-role key, so any
+  logged-in player can read any other player's values and percentiles. It behaves identically on
+  Lovable. Worth a follow-up issue.
 
 ## Workstream A: perf repo (one PR)
 
