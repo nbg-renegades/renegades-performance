@@ -101,10 +101,11 @@ These drove the plan. Re-check any that look surprising before acting on them.
 - **Data:** 32 users, 32 identities, 32 profiles, 41 roles, 32 positions, 262 entries. No
   orphans, all three roles present, every user has a `$2a$10$` bcrypt hash - the same format
   and length this GoTrue version produces itself.
-- **Password hashes survive the move.** An untouched restored account logged in with its real
-  pre-migration password, so Lovable's bcrypt digests verify against this GoTrue as they are.
-  Separately, a restored user accepted `reset-user-password` and then logged in keeping its
-  UUID, which exercises every `auth.users` column GoTrue reads. Nobody has to reset anything.
+- **Auth rows are portable; the hashes themselves are NOT yet confirmed.** A restored user
+  accepted `reset-user-password` and then logged in keeping its UUID, which exercises every
+  `auth.users` column GoTrue reads. Verifying an *original* Lovable digest still needs someone
+  who knows their pre-migration password - see "Open question" below. Until then, assume the
+  fallback (bulk reset via `reset-user-password`) may be needed at cutover.
 - **All seven edge functions** ran against the restored data with real user JWTs, and refused
   non-admins where they should. RLS checked per role: a player saw 7 entries and 1 profile, an
   admin 262 and 32, `anon` none.
@@ -144,6 +145,30 @@ by one version, including the homepage's, because functions are restarted to pic
 It reuses the stored bundle rather than rebuilding, so it does *not* ship uncommitted or newly
 committed source - B3 still needed its own explicit deploy. Worth knowing before reading
 anything into a version number.
+
+### Open question: do the original password hashes verify?
+
+Unresolved as of 2026-09-24. It does **not** block Phase 3, but it decides what the club is
+told at cutover: "log in with your old password" or "here is a new one".
+
+What is established:
+
+- The restored `auth.users` row for a test account is **byte-identical** in production and in
+  the rehearsal - same id, `instance_id`, `aud`, `role`, `$2a$10$` hash, confirmed, not banned,
+  not deleted. Its `auth.identities` row matches too. So nothing was lost or altered in transit.
+- `extensions.crypt(password, hash)` is a faithful stand-in for GoTrue's own comparison: it
+  returns MATCH for a hash GoTrue generated and "no match" for a wrong password (self-tested).
+- Against that test account, the password tried returns **"no match" in both** production and
+  the rehearsal, and a production login returns `invalid_credentials`.
+
+Since both databases agree, this is not a migration defect either way. The remaining
+possibilities are that the password tried is simply not the right one - that account's last
+successful sign-in on Lovable was 2026-01-28, eight months earlier - or that Lovable stored
+digests some other way, which the identical hashes make unlikely.
+
+To settle it, someone who is sure of their password runs
+`renegades-migration/check-hash.sh <email>`; MATCH means the hashes carried over and no resets
+are needed. A quicker equivalent: log in at the rehearsal app while it is still up.
 
 ### Rehearsal artifacts
 
