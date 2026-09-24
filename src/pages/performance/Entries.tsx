@@ -11,9 +11,6 @@ import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { BatchCreateDialog } from "@/components/BatchCreateDialog";
 import { PerformanceEntriesTable } from "@/components/PerformanceEntriesTable";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
-import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
-import { PerformanceNeighborhood } from "@/components/PerformanceNeighborhood";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
 import { performanceEntrySchema } from "@/lib/validation";
 import {
@@ -26,6 +23,7 @@ import {
 } from "@/lib/metrics";
 import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePerformanceContext } from "./PerformanceLayout";
 
 interface PerformanceEntry {
   id: string;
@@ -41,13 +39,14 @@ interface PerformanceEntry {
   };
 }
 
-const Performance = () => {
+const PerformanceEntries = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  // Identity and roster are resolved once by PerformanceLayout and shared by all three
+  // tabs, rather than each route repeating auth.getUser() plus a user_roles lookup.
+  const { currentUserId, userRole, players, isLoading: isContextLoading } =
+    usePerformanceContext();
   const [entries, setEntries] = useState<PerformanceEntry[]>([]);
-  const [players, setPlayers] = useState<any[]>([]);
-  const [userRole, setUserRole] = useState("");
-  const [currentUserId, setCurrentUserId] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
@@ -62,63 +61,21 @@ const Performance = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentUserId]);
 
   // Debounced refresh to prevent rapid successive calls
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const FETCH_COOLDOWN = 1000; // 1 second cooldown
 
   const fetchData = async () => {
+    if (!currentUserId) return;
+
     // Rate limiting: Check cooldown
     const now = Date.now();
     if (now - lastFetchTime < FETCH_COOLDOWN) {
       return; // Skip if called too soon
     }
     setLastFetchTime(now);
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    setCurrentUserId(user.id);
-
-    // Get all user roles (avoid maybeSingle because users can have multiple roles)
-    const { data: rolesData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id);
-
-    const roles = (rolesData || []).map((r: any) => r.role);
-    setUserRole(
-      roles.includes("admin") ? "admin" :
-      roles.includes("coach") ? "coach" :
-      roles.includes("player") ? "player" :
-      ""
-    );
-
-    // Get all players for coaches/admins
-    if (roles.includes("coach") || roles.includes("admin")) {
-      // First get all user_ids with player role
-      const { data: playerRoles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "player");
-
-      if (playerRoles && playerRoles.length > 0) {
-        const playerIds = playerRoles.map(r => r.user_id);
-        
-        // Then get profiles for those users
-        const { data: playersData } = await supabase
-          .from("profiles")
-          .select("id, first_name, last_name")
-          .in("id", playerIds)
-          .order("last_name", { ascending: true })
-          .order("first_name", { ascending: true });
-
-        setPlayers(playersData || []);
-      } else {
-        setPlayers([]);
-      }
-    }
 
     // Fetch performance entries using best daily entries RPC
     // This ensures only the best entry per metric per day per player is shown
@@ -135,12 +92,8 @@ const Performance = () => {
       return;
     }
 
-    let entriesData = bestDailyData || [];
-
-    // Filter by player role (players see only their own)
-    if (userRole === "player") {
-      entriesData = entriesData.filter((e: any) => e.player_id === currentUserId);
-    }
+    // The RPC already restricts players to their own rows, so no client-side filter.
+    const entriesData = bestDailyData || [];
 
     // Fetch player names and positions for all entries
     const playerIdsToFetch = [...new Set(entriesData.map((e: any) => e.player_id))];
@@ -164,7 +117,7 @@ const Performance = () => {
     );
 
     // Transform entries to match our interface
-    const transformedEntries: PerformanceEntry[] = (entriesData || []).map((entry: any) => {
+    const transformedEntries: PerformanceEntry[] = entriesData.map((entry: any) => {
       const profile = playerMap.get(entry.player_id);
       const position = positionMap.get(entry.player_id);
       return {
@@ -456,12 +409,7 @@ const Performance = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Performance Tracking</h1>
-          <p className="text-sm md:text-base text-muted-foreground">Monitor and record athletic performance metrics</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
           {(userRole === "coach" || userRole === "admin") && (
             <>
               <Button variant="outline" onClick={handleExportCSV}>
@@ -579,14 +527,8 @@ const Performance = () => {
               </form>
             </ResponsiveDialog>
         )}
-        </div>
       </div>
 
-      <PlayerPerformanceChart currentUserId={currentUserId} userRole={userRole} />
-
-      <PerformanceRadarChart currentUserId={currentUserId} userRole={userRole} />
-
-      <PerformanceNeighborhood playerId={currentUserId} />
 
       <Card className="border-border/50 shadow-card">
         <CardHeader>
@@ -752,4 +694,4 @@ const Performance = () => {
   );
 };
 
-export default Performance;
+export default PerformanceEntries;
