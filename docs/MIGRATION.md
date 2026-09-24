@@ -78,8 +78,8 @@ These drove the plan. Re-check any that look surprising before acting on them.
 | Phase | State |
 |---|---|
 | 0 — Stop Lovable (human) | done: Lovable disconnected, site unpublished, export downloaded |
-| 1 — Code | done: A1-A4, A6-A8 and B1-B3 merged to `main` in both repos. A9 partial |
-| 2 — Local rehearsal | done, drift gate clean, verification gate passed, app exercised |
+| 1 — Code | done: A1-A9 and B1-B3 merged to `main` in both repos |
+| 2 — Local rehearsal | done, every gate passed including real-password login |
 | 3 — Production | blocked on H4 (dashboard settings) and H6 (`SUPABASE_DB_URL`) |
 | 4 — Cutover | not started |
 | 5 — Decommission | not started |
@@ -101,9 +101,10 @@ These drove the plan. Re-check any that look surprising before acting on them.
 - **Data:** 32 users, 32 identities, 32 profiles, 41 roles, 32 positions, 262 entries. No
   orphans, all three roles present, every user has a `$2a$10$` bcrypt hash - the same format
   and length this GoTrue version produces itself.
-- **Auth rows are portable.** A restored user accepted `reset-user-password` and then logged in,
-  keeping its UUID, which exercises every `auth.users` column GoTrue reads. Only verifying an
-  *original* hash still needs a real password (see below).
+- **Password hashes survive the move.** An untouched restored account logged in with its real
+  pre-migration password, so Lovable's bcrypt digests verify against this GoTrue as they are.
+  Separately, a restored user accepted `reset-user-password` and then logged in keeping its
+  UUID, which exercises every `auth.users` column GoTrue reads. Nobody has to reset anything.
 - **All seven edge functions** ran against the restored data with real user JWTs, and refused
   non-admins where they should. RLS checked per role: a player saw 7 entries and 1 profile, an
   admin 262 and 32, `anon` none.
@@ -124,17 +125,20 @@ Kept outside both repos in `~/Documents/Repositories/renegades-migration/`:
 
 ### Still open
 
-- **Real-password login** is the one rehearsal step that needs a human: it is the only way to
-  prove an *original* Lovable hash verifies. Everything around it passed, and the fallback
-  (bulk reset via `reset-user-password`) is unchanged.
-- **A9 is partial.** Four of the five `edit/edt-*` branches were fully merged and are deleted.
-  `edit/edt-67667683-e862-4df7-9849-aac070835d66` has two unmerged commits (English UI strings,
-  a `playerId` guard, and removing `PerformanceNeighborhood` from the dashboard) and is left
-  alone pending a decision.
 - **Pre-existing, not migration scope:** `get-player-neighborhood` authenticates the caller but
   never checks that `player_id` is their own, and it queries with the service-role key, so any
   logged-in player can read any other player's values and percentiles. It behaves identically on
   Lovable. Worth a follow-up issue.
+- **What Phase 3 needs from a human:** H4 (dashboard: confirm legacy keys enabled, disable
+  sign-ups, email confirmation off, Site URL) and H6 (the session pooler URI, as the
+  `SUPABASE_DB_URL` secret and to this session). Nothing else blocks it.
+
+### A9, for the record
+
+All five `edit/edt-*` branches are deleted. Four were fully merged. The fifth,
+`edit/edt-67667683-e862-4df7-9849-aac070835d66` (`8528dee`), carried two unmerged Nov 2025
+commits - English UI strings, a `playerId` guard, and removing `PerformanceNeighborhood` from
+the dashboard - which were deliberately dropped rather than merged.
 
 ## Workstream A: perf repo (one PR)
 
