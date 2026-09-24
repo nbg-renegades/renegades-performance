@@ -138,6 +138,24 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
   const startTs = startDateAxis.getTime();
   const endTs = endDateAxis.getTime();
 
+  // Recharts anchors a numeric axis at 0 unless told otherwise. For these metrics that is
+  // never the interesting range: a vertical jump going 54cm -> 60cm is an 11% gain, but
+  // against a 0-60 axis it draws as a flat line across the top of a 400px chart. Framing
+  // the actual spread - with 10% padding, and a floor of half a unit so a single point or
+  // a run of identical values still gets a sane axis - is what makes the trend visible.
+  const yDomain = (() => {
+    if (chartData.length === 0) return [0, 'auto'] as const;
+    const values = chartData.map((d) => d.value as number);
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    const pad = Math.max((hi - lo) * 0.1, 0.5);
+    return [
+      // Nothing here can be negative, so never pad below zero.
+      Math.max(0, +(lo - pad).toFixed(2)),
+      +(hi + pad).toFixed(2),
+    ] as const;
+  })();
+
   const formatXAxisTick = (ts: number) => {
     const months = ZOOM_LEVELS[zoomLevel].months;
     const options: Intl.DateTimeFormatOptions =
@@ -205,7 +223,11 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
 
         <div className="mt-4">
           {isLoading ? (
-            <Skeleton className={`h-[${chartHeight}px] w-full`} />
+            // Tailwind cannot see an interpolated class name, so `h-[${chartHeight}px]`
+            // generated no CSS at all and the skeleton collapsed to nothing - the card
+            // shrank and snapped back on every metric or timeframe change. An inline
+            // height reserves the same space the chart is about to take.
+            <Skeleton className="w-full" style={{ height: chartHeight }} />
           ) : (
             <>
               {/* Show date range */}
@@ -227,9 +249,11 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                   textAnchor={isMobile ? 'end' : 'middle'}
                   height={isMobile ? 60 : 30}
                 />
-                <YAxis 
+                <YAxis
+                  domain={yDomain}
+                  allowDecimals={METRICS[selectedMetric].unit === 's'}
                   tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
-                  label={{ 
+                  label={{
                     value: `${METRICS[selectedMetric].label} [${METRICS[selectedMetric].unit}]`, 
                     angle: -90, 
                     position: 'insideLeft',
