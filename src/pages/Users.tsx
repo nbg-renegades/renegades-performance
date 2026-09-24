@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type AppRole = Database["public"]["Enums"]["app_role"];
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, UserPlus, Shield, Pencil, Target, Trash2, KeyRound } from "lucide-react";
 import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
+import { errorMessage } from "@/lib/errors";
 import { ResponsiveDialog } from "@/components/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,10 +53,6 @@ const Users = () => {
   const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
   const [userToResetPassword, setUserToResetPassword] = useState<UserProfile | null>(null);
   const [newPassword, setNewPassword] = useState("");
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const fetchUsers = async () => {
     const { data } = await supabase
@@ -98,6 +98,10 @@ const Users = () => {
       setUsers(usersWithRoles);
     }
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -171,10 +175,10 @@ const Users = () => {
       setIsDialogOpen(false);
       setSelectedRoles([]);
       fetchUsers();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -234,10 +238,10 @@ const Users = () => {
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
       fetchUsers();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -289,10 +293,10 @@ const Users = () => {
       setIsPasswordResetDialogOpen(false);
       setUserToResetPassword(null);
       setNewPassword("");
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -372,7 +376,7 @@ const Users = () => {
       if (rolesToAdd.length > 0) {
         const roleInserts = rolesToAdd.map(role => ({
           user_id: editingUser.id,
-          role: role as any,
+          role: role as AppRole,
         }));
 
         const { error: insertError } = await supabase
@@ -388,7 +392,7 @@ const Users = () => {
           .from("user_roles")
           .delete()
           .eq("user_id", editingUser.id)
-          .in("role", rolesToRemove as any);
+          .in("role", rolesToRemove as AppRole[]);
 
         if (deleteError) throw deleteError;
       }
@@ -416,7 +420,7 @@ const Users = () => {
             .from("player_positions")
             .insert([{
               player_id: editingUser.id,
-              position: primaryPosition as any,
+              position: primaryPosition as FootballPosition,
             }]);
 
           if (posError) {
@@ -444,10 +448,10 @@ const Users = () => {
       setSelectedRoles([]);
       setPrimaryPosition('unassigned');
       fetchUsers();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {

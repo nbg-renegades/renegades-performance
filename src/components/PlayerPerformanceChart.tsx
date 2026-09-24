@@ -39,35 +39,26 @@ interface Player {
   last_name: string;
 }
 
+interface ChartPoint {
+  /** Epoch millis; the X axis is a time scale, so the key has to be numeric. */
+  ts: number;
+  value: number;
+  isoDate: string;
+  dateLabel: string;
+}
+
 export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayerId }: PlayerPerformanceChartProps) {
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('3m');
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('vertical_jump');
-  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [activePlayerId, setActivePlayerId] = useState<string>(currentUserId);
+  // Who the chart is showing is a choice layered over the props, not a copy of them. As
+  // state synced by an effect it was always one render stale and re-ran on every prop
+  // change; as a derived value there is nothing to keep in sync.
+  const [chosenPlayerId, setChosenPlayerId] = useState<string | null>(null);
+  const activePlayerId = chosenPlayerId ?? selectedPlayerId ?? currentUserId;
   const [isLoading, setIsLoading] = useState(false);
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    // Set initial player ID
-    if (selectedPlayerId) {
-      setActivePlayerId(selectedPlayerId);
-    } else if (currentUserId) {
-      setActivePlayerId(currentUserId);
-    }
-  }, [selectedPlayerId, currentUserId]);
-
-  useEffect(() => {
-    if (userRole === 'coach' || userRole === 'admin') {
-      fetchPlayers();
-    }
-  }, [userRole]);
-
-  useEffect(() => {
-    if (activePlayerId) {
-      fetchChartData();
-    }
-  }, [zoomLevel, selectedMetric, activePlayerId]);
 
   async function fetchPlayers() {
     const { data: playerRoles } = await supabase
@@ -109,7 +100,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
       const dbData = data || [];
       
       // Only include dates where we have actual data, but maintain time scale
-      const formattedData = dbData.map((entry: any) => ({
+      const formattedData: ChartPoint[] = dbData.map((entry) => ({
         ts: new Date(entry.entry_date).getTime(),
         value: entry.value,
         isoDate: entry.entry_date,
@@ -125,6 +116,18 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
       setIsLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (userRole === 'coach' || userRole === 'admin') {
+      fetchPlayers();
+    }
+  }, [userRole]);
+
+  useEffect(() => {
+    if (activePlayerId) {
+      fetchChartData();
+    }
+  }, [zoomLevel, selectedMetric, activePlayerId]);
 
   const chartHeight = isMobile ? 250 : 400;
 
@@ -178,7 +181,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
           {(userRole === 'coach' || userRole === 'admin') && (
             <div className="space-y-2">
               <Label htmlFor="player-select">Select Player</Label>
-              <Select value={activePlayerId} onValueChange={setActivePlayerId}>
+              <Select value={activePlayerId} onValueChange={setChosenPlayerId}>
                 <SelectTrigger id="player-select" className="bg-background">
                   <SelectValue />
                 </SelectTrigger>
@@ -265,9 +268,9 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                     borderRadius: '6px',
                     color: 'hsl(var(--popover-foreground))'
                   }}
-                  formatter={(value: any) => [`${value} ${metricUnit(selectedMetric)}`, metricLabel(selectedMetric)]}
-                  labelFormatter={(label: any) =>
-                    new Date(label as number).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
+                  formatter={(value: number) => [`${value} ${metricUnit(selectedMetric)}`, metricLabel(selectedMetric)]}
+                  labelFormatter={(label: number) =>
+                    new Date(label).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
                   }
                 />
                 <Legend 

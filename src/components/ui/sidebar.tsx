@@ -531,10 +531,16 @@ const SidebarMenuSkeleton = React.forwardRef<
     showIcon?: boolean;
   }
 >(({ className, showIcon = false, ...props }, ref) => {
-  // Random width between 50 to 90%.
+  // Varied width between 50% and 90% so the placeholder rows do not look like a grid.
+  // This used to call Math.random() during render, which makes the render impure - the
+  // same component could measure differently on every pass. A stable id gives the same
+  // spread without the randomness.
+  const skeletonId = React.useId();
   const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`;
-  }, []);
+    let hash = 0;
+    for (const ch of skeletonId) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+    return `${(Math.abs(hash) % 40) + 50}%`;
+  }, [skeletonId]);
 
   return (
     <div

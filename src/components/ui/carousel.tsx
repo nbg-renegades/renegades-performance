@@ -93,9 +93,14 @@ const Carousel = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEl
         return;
       }
 
-      onSelect(api);
       api.on("reInit", onSelect);
       api.on("select", onSelect);
+      // Embla has already initialised by the time this component holds `api`, so the
+      // arrows' enabled state has to be read once here - the events only fire on later
+      // changes. Embla exposes no way to subscribe that replays the current position, so
+      // this one synchronous read is unavoidable with its imperative API.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      onSelect(api);
 
       return () => {
         api?.off("select", onSelect);

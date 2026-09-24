@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { errorMessage } from "@/lib/errors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,10 +51,10 @@ export function TermsDialog({ open, onAccept, canCancel = false }: TermsDialogPr
           : "Vielen Dank für die Akzeptanz unserer Bedingungen und Datenschutzrichtlinie.",
       });
       onAccept();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {

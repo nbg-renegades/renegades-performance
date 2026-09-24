@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { METRIC_KEYS, isLowerBetter, metricLabel } from '../_shared/metrics.ts';
+import { METRIC_KEYS, isLowerBetter, metricLabel, metricUnit, type PerformanceEntryRow } from '../_shared/metrics.ts';
 
 interface MetricNeighborhood {
   metric_type: string;
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     }
 
     // Check if the player has any entries at all
-    const playerHasEntries = allEntries?.some((entry: any) => entry.player_id === player_id);
+    const playerHasEntries = allEntries?.some((entry: PerformanceEntryRow) => entry.player_id === player_id);
     
     if (!playerHasEntries) {
       // Return empty array if player has no recorded entries
@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
 
 
   // Get latest entry per player per metric (best value per day)
-  const latestEntries = new Map<string, any>();
-  allEntries?.forEach((entry: any) => {
+  const latestEntries = new Map<string, PerformanceEntryRow>();
+  allEntries?.forEach((entry: PerformanceEntryRow) => {
     const key = `${entry.player_id}-${entry.metric_type}`;
     const existing = latestEntries.get(key);
     
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
       results.push({
         metric_type: metricKey,
         metric_name: metricName,
-        unit: currentPlayerEntry.unit,
+        unit: currentPlayerEntry.unit ?? metricUnit(metricKey),
         current_value: currentValue,
         next_best_player: null,
         next_best_value: nextBestValue,

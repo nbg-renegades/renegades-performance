@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { isLowerBetter } from '../_shared/metrics.ts';
+import { isLowerBetter, metricUnit, type PerformanceEntryRow } from '../_shared/metrics.ts';
 
 interface MetricAverage {
   metric_type: string;
@@ -62,13 +62,15 @@ Deno.serve(async (req) => {
     const positionMap = new Map(positions?.map(p => [p.player_id, p.position]) || []);
 
     // Calculate averages for different groups
-    const calculateAverages = (entries: any[]): MetricAverage[] => {
+    const calculateAverages = (
+      entries: Array<Pick<PerformanceEntryRow, 'metric_type' | 'value' | 'unit'>>,
+    ): MetricAverage[] => {
       const metricGroups = new Map<string, { sum: number; count: number; unit: string }>();
 
       entries.forEach(entry => {
         const key = entry.metric_type;
         if (!metricGroups.has(key)) {
-          metricGroups.set(key, { sum: 0, count: 0, unit: entry.unit });
+          metricGroups.set(key, { sum: 0, count: 0, unit: entry.unit ?? metricUnit(key) });
         }
         const group = metricGroups.get(key)!;
         group.sum += Number(entry.value);
@@ -83,8 +85,8 @@ Deno.serve(async (req) => {
     };
 
     // Get latest entry per player per metric (best value per day)
-    const latestEntries = new Map<string, any>();
-    allEntries?.forEach((entry: any) => {
+    const latestEntries = new Map<string, PerformanceEntryRow>();
+    allEntries?.forEach((entry: PerformanceEntryRow) => {
       const key = `${entry.player_id}-${entry.metric_type}`;
       const existing = latestEntries.get(key);
       

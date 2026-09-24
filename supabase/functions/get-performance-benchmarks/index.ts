@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { z } from 'npm:zod@4.4.3';
 import { getCorsHeaders } from '../_shared/cors.ts';
-import { METRIC_KEYS, isLowerBetter as lowerIsBetterMetric } from '../_shared/metrics.ts';
+import { METRIC_KEYS, isLowerBetter as lowerIsBetterMetric, type PerformanceEntryRow } from '../_shared/metrics.ts';
 
 const requestSchema = z.object({
   mode: z.enum(['best', 'position', 'offense', 'defense', 'compare']),
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     }
 
     // Manually filter to get best entry per player per metric per day
-    const bestEntriesMap = new Map<string, any>();
+    const bestEntriesMap = new Map<string, PerformanceEntryRow>();
     
     rawData?.forEach(entry => {
       const key = `${entry.player_id}-${entry.metric_type}-${entry.entry_date}`;
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
     // Filter allData based on mode to ensure normalization uses correct context
     let filteredAllData = allData;
     if (playerIds.length > 0) {
-      filteredAllData = allData.filter((entry: any) => playerIds.includes(entry.player_id));
+      filteredAllData = allData.filter((entry: PerformanceEntryRow) => playerIds.includes(entry.player_id));
       console.log(`Filtered allData from ${allData.length} to ${filteredAllData.length} entries for ${playerIds.length} players`);
     }
 
@@ -165,14 +165,14 @@ Deno.serve(async (req) => {
       const isLowerBetter = lowerIsBetterMetric(metric);
 
       // Filter allData (which is already best-daily) by metric and player IDs
-      let filteredEntries = filteredAllData.filter((e: any) => e.metric_type === metric);
+      const filteredEntries = filteredAllData.filter((e: PerformanceEntryRow) => e.metric_type === metric);
 
       console.log(`Metric: ${metric}, Mode: ${mode}, Filtered entries count:`, filteredEntries.length);
 
       if (filteredEntries && filteredEntries.length > 0) {
         // Get unique players with their latest value
         const playerLatest = new Map<string, number>();
-        filteredEntries.forEach((entry: any) => {
+        filteredEntries.forEach((entry: PerformanceEntryRow) => {
           if (!playerLatest.has(entry.player_id)) {
             playerLatest.set(entry.player_id, entry.value);
           }

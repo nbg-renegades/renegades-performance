@@ -26,10 +26,6 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchNeighborhoodData();
-  }, [playerId]);
-
   async function fetchNeighborhoodData() {
     if (!playerId) return;
 
@@ -56,6 +52,10 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
       setIsLoading(false);
     }
   }
+
+  useEffect(() => {
+    fetchNeighborhoodData();
+  }, [playerId]);
 
   // These carried `dark:` variants, but nothing ever sets the `.dark` class that
   // index.css's @custom-variant keys off - the theme is dark by default, straight from

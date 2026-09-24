@@ -12,6 +12,7 @@ import { BatchCreateDialog } from "@/components/BatchCreateDialog";
 import { PerformanceEntriesTable } from "@/components/PerformanceEntriesTable";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { POSITION_OPTIONS, POSITION_LABELS, getPositionUnit, type FootballPosition } from "@/lib/positionUtils";
+import { errorMessage } from "@/lib/errors";
 import { performanceEntrySchema } from "@/lib/validation";
 import {
   METRICS,
@@ -23,7 +24,7 @@ import {
 } from "@/lib/metrics";
 import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { usePerformanceContext } from "./PerformanceLayout";
+import { usePerformanceContext } from "./context";
 
 interface PerformanceEntry {
   id: string;
@@ -59,10 +60,6 @@ const PerformanceEntries = () => {
   const [filterUnit, setFilterUnit] = useState<string>("all");
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [currentUserId]);
-
   // Debounced refresh to prevent rapid successive calls
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   const FETCH_COOLDOWN = 1000; // 1 second cooldown
@@ -96,7 +93,7 @@ const PerformanceEntries = () => {
     const entriesData = bestDailyData || [];
 
     // Fetch player names and positions for all entries
-    const playerIdsToFetch = [...new Set(entriesData.map((e: any) => e.player_id))];
+    const playerIdsToFetch = [...new Set(entriesData.map((e) => e.player_id))];
     const [playerProfilesResult, playerPositionsResult] = await Promise.all([
       supabase
         .from('profiles')
@@ -117,7 +114,7 @@ const PerformanceEntries = () => {
     );
 
     // Transform entries to match our interface
-    const transformedEntries: PerformanceEntry[] = entriesData.map((entry: any) => {
+    const transformedEntries: PerformanceEntry[] = entriesData.map((entry) => {
       const profile = playerMap.get(entry.player_id);
       const position = positionMap.get(entry.player_id);
       return {
@@ -137,6 +134,10 @@ const PerformanceEntries = () => {
 
     setEntries(transformedEntries);
   };
+
+  useEffect(() => {
+    fetchData();
+  }, [currentUserId]);
 
   const handleAddEntry = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -172,7 +173,7 @@ const PerformanceEntries = () => {
         .from("performance_entries")
         .insert([{
           player_id: playerId,
-          metric_type: metricType as any,
+          metric_type: validation.data.metric_type,
           value: value,
           unit: metricUnit(metricType),
           entry_date: entryDate,
@@ -188,10 +189,10 @@ const PerformanceEntries = () => {
 
       setIsDialogOpen(false);
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -246,10 +247,10 @@ const PerformanceEntries = () => {
 
       setEditingEntry(null);
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -276,10 +277,10 @@ const PerformanceEntries = () => {
 
       setDeletingEntryId(null);
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -398,10 +399,10 @@ const PerformanceEntries = () => {
         title: "Success",
         description: "Performance data exported successfully",
       });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     }
@@ -445,7 +446,7 @@ const PerformanceEntries = () => {
                         <SelectValue placeholder="Select player" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover z-50">
-                        {players.map((p: any) => (
+                        {players.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
                             {p.first_name} {p.last_name}
                           </SelectItem>

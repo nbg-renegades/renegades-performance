@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Outlet, useOutletContext } from "react-router";
+import { Outlet } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
+import type { PerformanceContext, PerformancePlayer } from "./context";
 
 /**
  * /performance used to be one route that owned everything: the history chart, the radar
@@ -19,24 +20,6 @@ import { cn } from "@/lib/utils";
  * The old page did its own auth.getUser() plus a user_roles query, and so did every page
  * beside it.
  */
-
-export interface PerformanceContext {
-  currentUserId: string;
-  userRole: string;
-  players: PerformancePlayer[];
-  /** True until the viewer's identity and role are known. */
-  isLoading: boolean;
-}
-
-export interface PerformancePlayer {
-  id: string;
-  first_name: string;
-  last_name: string;
-}
-
-export function usePerformanceContext() {
-  return useOutletContext<PerformanceContext>();
-}
 
 const TABS = [
   { to: "/performance", label: "Entries", end: true },

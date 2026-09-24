@@ -59,3 +59,20 @@ export function metricUnit(key: string): string {
 export function betterOf(key: string, a: number, b: number): number {
   return isLowerBetter(key) ? Math.min(a, b) : Math.max(a, b);
 }
+
+/**
+ * The shape of a performance_entries row as the functions read it. They query with the
+ * service-role client, which is untyped here (the generated Database types live in the
+ * frontend's src/integrations/supabase), so this is the hand-written stand-in that keeps
+ * `any` out of the aggregation code.
+ */
+export interface PerformanceEntryRow {
+  id?: string;
+  player_id: string;
+  metric_type: string;
+  value: number;
+  unit?: string;
+  entry_date: string;
+  created_at?: string;
+  created_by?: string | null;
+}

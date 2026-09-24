@@ -23,4 +23,17 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    // src/components/ui is vendored shadcn/ui. Its files deliberately export a component
+    // alongside its variants or a companion hook (button + buttonVariants, form +
+    // useFormField), which is the layout `shadcn add` writes and rewrites. Splitting them
+    // would be undone by the next component update, and the only cost is that editing one
+    // of these files refreshes a little more of the app than strictly necessary.
+    //
+    // Correctness rules stay on here - this exemption is about file layout, nothing else.
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

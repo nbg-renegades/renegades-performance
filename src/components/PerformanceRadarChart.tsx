@@ -66,29 +66,6 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
     compareBaseline
   });
 
-  useEffect(() => {
-    // Check if user is a coach
-    const checkCoach = userRole === 'coach' || userRole === 'admin';
-    setIsCoach(checkCoach);
-
-    // If coach, fetch all players and check if coach is also a player
-    if (checkCoach) {
-      fetchAllPlayers();
-    } else {
-      // Always check player unit for non-coaches
-      fetchPlayerUnit();
-    }
-  }, [currentUserId, userRole]);
-
-  useEffect(() => {
-    // Update player unit when selected player changes
-    if (selectedPlayerId) {
-      fetchPlayerUnit(selectedPlayerId);
-    } else if (!isCoach) {
-      fetchPlayerUnit();
-    }
-  }, [selectedPlayerId, isCoach]);
-
   async function fetchPlayerUnit(playerId?: string) {
     const targetId = playerId || currentUserId;
     if (!targetId) return;
@@ -154,10 +131,33 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
     }
   }
 
+  useEffect(() => {
+    // Check if user is a coach
+    const checkCoach = userRole === 'coach' || userRole === 'admin';
+    setIsCoach(checkCoach);
+
+    // If coach, fetch all players and check if coach is also a player
+    if (checkCoach) {
+      fetchAllPlayers();
+    } else {
+      // Always check player unit for non-coaches
+      fetchPlayerUnit();
+    }
+  }, [currentUserId, userRole]);
+
+  useEffect(() => {
+    // Update player unit when selected player changes
+    if (selectedPlayerId) {
+      fetchPlayerUnit(selectedPlayerId);
+    } else if (!isCoach) {
+      fetchPlayerUnit();
+    }
+  }, [selectedPlayerId, isCoach]);
+
   // Transform data for recharts - match metrics by name, not by index
   const chartData = Object.keys(comparisonData).length > 0
     ? comparisonData[Object.keys(comparisonData)[0]].map((metric) => {
-        const dataPoint: any = { metric: metric.metric };
+        const dataPoint: Record<string, string | number> = { metric: metric.metric };
         Object.entries(comparisonData).forEach(([key, metrics]) => {
           // Find the matching metric by name instead of using index
           const matchingMetric = metrics.find(m => m.metric === metric.metric);
@@ -372,11 +372,10 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
                     borderRadius: '6px',
                     color: 'hsl(var(--popover-foreground))'
                   }}
-                  formatter={(value: any, name: any, props: any) => {
-                    const rawValue = props.payload[name];
-                    return [`Score: ${Math.round(value)}/100`, name];
-                  }}
-                  labelFormatter={(label: any) => label}
+                  formatter={(value: number, name: string) => [
+                    `Score: ${Math.round(value)}/100`,
+                    name,
+                  ]}
                 />
               </RadarChart>
             </ResponsiveContainer>

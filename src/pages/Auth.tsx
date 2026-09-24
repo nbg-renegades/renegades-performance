@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { Trophy } from "lucide-react";
 import { signInSchema, changePasswordSchema } from "@/lib/validation";
+import { errorMessage } from "@/lib/errors";
 import { useEffect } from "react";
 import logo from "@/assets/logo.png";
 
@@ -92,10 +93,10 @@ const Auth = () => {
       });
 
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {
@@ -140,10 +141,10 @@ const Auth = () => {
         description: "Successfully signed in.",
       });
       navigate("/");
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage(error),
         variant: "destructive",
       });
     } finally {

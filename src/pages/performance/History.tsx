@@ -1,5 +1,5 @@
 import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
-import { usePerformanceContext } from "./PerformanceLayout";
+import { usePerformanceContext } from "./context";
 
 /** Just the history chart, so recharts is only downloaded by people who open it. */
 const PerformanceHistory = () => {

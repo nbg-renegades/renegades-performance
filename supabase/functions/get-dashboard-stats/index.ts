@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.112.1'
 import { getCorsHeaders } from '../_shared/cors.ts'
-import { isLowerBetter as lowerIsBetter } from '../_shared/metrics.ts'
+import { isLowerBetter as lowerIsBetter, type PerformanceEntryRow } from '../_shared/metrics.ts'
 
 interface DashboardStats {
   totalPlayers: number;
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     }
 
     // Process team best values
-    const processTeamBest = (entries: any[]) => {
+    const processTeamBest = (entries: Array<Pick<PerformanceEntryRow, 'metric_type' | 'value'>>) => {
       const metricMap = new Map<string, number>();
       
       entries?.forEach(entry => {

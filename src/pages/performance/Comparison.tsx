@@ -1,6 +1,6 @@
 import { PerformanceRadarChart } from "@/components/PerformanceRadarChart";
 import { PerformanceNeighborhood } from "@/components/PerformanceNeighborhood";
-import { usePerformanceContext } from "./PerformanceLayout";
+import { usePerformanceContext } from "./context";
 
 /**
  * The radar comparison and the neighbourhood panel answer the same question - where do I

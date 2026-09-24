@@ -230,12 +230,13 @@ export function usePerformanceComparison({
           case 'best':
             benchmarkLabel = 'Best Overall';
             break;
-          case 'position':
+          case 'position': {
             // Use the position from backend response
             const posLabel = playerPosition || selectedPosition;
             benchmarkLabel = `Best ${posLabel}`;
             setPositionLabel(posLabel);
             break;
+          }
           case 'offense':
             benchmarkLabel = 'Best Offense';
             break;
@@ -296,10 +297,12 @@ export function usePerformanceComparison({
         }
 
         if (averageData && averageData.length > 0) {
-          const avgMetrics: MetricData[] = averageData.map((avg: any) => ({
-            metric_type: avg.metric_type,
-            value: avg.average_value
-          }));
+          const avgMetrics: MetricData[] = averageData.map(
+            (avg: { metric_type: MetricData['metric_type']; average_value: number }) => ({
+              metric_type: avg.metric_type,
+              value: avg.average_value,
+            }),
+          );
           result[averageLabel] = normalizeMetrics(avgMetrics, allData as MetricData[]);
         }
       }
@@ -341,10 +344,10 @@ export function usePerformanceComparison({
       }
 
       // Filter for this player and get the most recent entry for each metric
-      const playerEntries = bestEntries.filter((e: any) => e.player_id === playerId);
+      const playerEntries = bestEntries.filter((e) => e.player_id === playerId);
       const latestByMetric = new Map<string, MetricData>();
       
-      playerEntries.forEach((entry: any) => {
+      playerEntries.forEach((entry) => {
         const existing = latestByMetric.get(entry.metric_type);
         const currentDate = entry.entry_date;
         const existingDate = existing ? (existing as any).entry_date : null;

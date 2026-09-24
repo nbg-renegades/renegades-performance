@@ -59,16 +59,6 @@ const Dashboard = () => {
   const [teamBestAllTime, setTeamBestAllTime] = useState<TeamBestMetric[]>([]);
   const [teamBestSixMonths, setTeamBestSixMonths] = useState<TeamBestMetric[]>([]);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  useEffect(() => {
-    if (stats.userId) {
-      fetchMetricStatuses();
-    }
-  }, [stats.userId]);
-
   const fetchDashboardData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -92,7 +82,7 @@ const Dashboard = () => {
     ]);
 
     const profile = profileResult.data;
-    const roles = (rolesResult.data || []).map((r: any) => r.role);
+    const roles = (rolesResult.data || []).map((r) => r.role);
     const position = positionResult.data?.position || "unassigned";
 
     // Fetch aggregated stats and team bests from backend
@@ -168,6 +158,16 @@ const Dashboard = () => {
 
     setMetricStatuses(statuses);
   };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  useEffect(() => {
+    if (stats.userId) {
+      fetchMetricStatuses();
+    }
+  }, [stats.userId]);
 
   const roleDisplayNames = {
     admin: "Administrator",
