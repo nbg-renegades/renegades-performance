@@ -343,6 +343,16 @@ const Performance = () => {
     }
   };
 
+  // Used for the row buttons' accessible names and for the delete confirmation, so both
+  // say which entry they mean rather than "this entry".
+  const describeEntry = (entry: PerformanceEntry) => {
+    const who = entry.player
+      ? `${entry.player.first_name} ${entry.player.last_name}`
+      : "this player";
+    const what = metricDisplayNames[entry.metric_type] ?? entry.metric_type;
+    return `${what} for ${who}, ${entry.value} ${entry.unit} on ${new Date(entry.entry_date).toLocaleDateString()}`;
+  };
+
   const canEditEntry = (entry: PerformanceEntry) => {
     if (userRole === "admin" || userRole === "coach") return true;
     if (userRole === "player" && entry.player_id === currentUserId) return true;
@@ -390,6 +400,7 @@ const Performance = () => {
   // and it grew by one card per measurement forever. A card is only worth its ~93px for
   // the handful you actually came to look at.
   const visibleEntries = filteredEntries.slice(0, visibleCount);
+  const deletingEntry = entries.find((e) => e.id === deletingEntryId) ?? null;
   const hasMoreEntries = filteredEntries.length > visibleEntries.length;
 
   const handleExportCSV = async () => {
@@ -689,9 +700,14 @@ const Performance = () => {
                     </div>
                     {canEditEntry(entry) && (
                       <div className="flex gap-2">
+                      {/* Icon-only buttons need their own name: a screen reader otherwise
+                          announces a run of identical "button"s, half of which delete data.
+                          Naming them after the entry also tells the two rows apart. */}
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Edit ${describeEntry(entry)}`}
+                        title="Edit entry"
                         onClick={() => setEditingEntry(entry)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -699,6 +715,8 @@ const Performance = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete ${describeEntry(entry)}`}
+                        title="Delete entry"
                         onClick={() => setDeletingEntryId(entry.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -771,7 +789,9 @@ const Performance = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Performance Entry</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this entry? This action cannot be undone.
+              {deletingEntry
+                ? `Delete ${describeEntry(deletingEntry)}? This action cannot be undone.`
+                : "This action cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -19,6 +19,30 @@ interface TeamBestMetric {
   value: number;
 }
 
+/**
+ * These were `<div onClick>`, which meant the dashboard's only two actions were not in the
+ * tab order at all - the whole page had exactly one focusable element, the sidebar toggle.
+ * A button gets keyboard activation, focus styling and the right role for free.
+ */
+const QuickAction = ({
+  onClick,
+  title,
+  description,
+}: {
+  onClick: () => void;
+  title: string;
+  description: string;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full text-left p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+  >
+    <h3 className="font-semibold mb-1">{title}</h3>
+    <p className="text-sm text-muted-foreground">{description}</p>
+  </button>
+);
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -342,31 +366,25 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent className="space-y-2">
           {(primaryRole === "coach" || primaryRole === "admin") && (
-            <div 
+            <QuickAction
               onClick={() => navigate("/performance")}
-              className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
-            >
-              <h3 className="font-semibold mb-1">Add Performance Entry</h3>
-              <p className="text-sm text-muted-foreground">Record new metrics for players</p>
-            </div>
+              title="Add Performance Entry"
+              description="Record new metrics for players"
+            />
           )}
           {primaryRole === "player" && (
-            <div 
+            <QuickAction
               onClick={() => navigate("/performance")}
-              className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
-            >
-              <h3 className="font-semibold mb-1">View My Progress</h3>
-              <p className="text-sm text-muted-foreground">Check your performance trends</p>
-            </div>
+              title="View My Progress"
+              description="Check your performance trends"
+            />
           )}
           {primaryRole === "admin" && (
-            <div 
+            <QuickAction
               onClick={() => navigate("/users")}
-              className="p-4 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors cursor-pointer"
-            >
-              <h3 className="font-semibold mb-1">Manage Users</h3>
-              <p className="text-sm text-muted-foreground">Add or edit team members</p>
-            </div>
+              title="Manage Users"
+              description="Add or edit team members"
+            />
           )}
         </CardContent>
       </Card>

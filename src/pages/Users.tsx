@@ -455,6 +455,8 @@ const Users = () => {
     }
   };
 
+  const fullName = (user: UserProfile) => `${user.first_name} ${user.last_name}`;
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case "admin":
@@ -583,6 +585,8 @@ const Users = () => {
                         </div>
                       )}
                     </div>
+                    {/* Icon-only buttons carry no text, so each needs an explicit name -
+                        and naming them after the member says which row they act on. */}
                     <div className="flex gap-2 shrink-0">
                       <Button
                         variant="ghost"
@@ -591,7 +595,8 @@ const Users = () => {
                           setUserToResetPassword(user);
                           setIsPasswordResetDialogOpen(true);
                         }}
-                        title="Reset Password"
+                        aria-label={`Reset password for ${fullName(user)}`}
+                        title="Reset password"
                       >
                         <KeyRound className="h-4 w-4" />
                       </Button>
@@ -599,6 +604,8 @@ const Users = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditUser(user)}
+                        aria-label={`Edit ${fullName(user)}`}
+                        title="Edit member"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -609,6 +616,8 @@ const Users = () => {
                           setUserToDelete(user);
                           setIsDeleteDialogOpen(true);
                         }}
+                        aria-label={`Delete ${fullName(user)}`}
+                        title="Delete member"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-4 w-4" />
