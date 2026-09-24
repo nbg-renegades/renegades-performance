@@ -1,6 +1,6 @@
 # Migration: off Lovable → Supabase (`renegades-eu`) + Netlify
 
-Status: **Phases 0-2 done, Phase 3 waiting on H4/H6.** v1 drafted 2026-08-06, v3 2026-09-24.
+Status: **Phase 3 all but the data restore; Phase 4 not started.** v1 drafted 2026-08-06, v3 2026-09-24.
 Earlier versions are in git history. See [Progress](#progress) for what has actually run.
 
 This plan spans **two repositories**:
@@ -80,7 +80,7 @@ These drove the plan. Re-check any that look surprising before acting on them.
 | 0 — Stop Lovable (human) | done: Lovable disconnected, site unpublished, export downloaded |
 | 1 — Code | done: A1-A9 and B1-B3 merged to `main` in both repos |
 | 2 — Local rehearsal | done, every gate passed including real-password login |
-| 3 — Production | blocked on H4 (dashboard settings) and H6 (`SUPABASE_DB_URL`) |
+| 3 — Production | schema, functions, secrets and types done; **data restore outstanding**; H5 (Netlify) outstanding |
 | 4 — Cutover | not started |
 | 5 — Decommission | not started |
 
@@ -111,6 +111,39 @@ These drove the plan. Re-check any that look surprising before acting on them.
 - **The app itself** was driven through the browser: login, dashboard, performance history,
   benchmarks, user admin, and creating an entry that landed in Postgres as the `authenticated`
   role through RLS.
+
+### What Phase 3 has done
+
+Run against `ekmdcqcjvodsnaqpsgun` on 2026-09-24.
+
+- **Pre-flight passed:** `auth.users` was 0 and `public` held only `heartbeat`.
+- **H4 confirmed from the API:** `disable_signup: true`, `mailer_autoconfirm: true`, and the
+  legacy anon key returns HTTP 200 on REST, which settles fact 4. The Auth **Site URL** is not
+  exposed by `/auth/v1/settings` and still wants a human glance before cutover.
+- **`db push --include-all`:** 23 migrations applied, `heartbeat` correctly skipped as already
+  present. `heartbeat` still holds its single row and its policy afterwards.
+- **Seven functions deployed by name**, all ACTIVE, alongside the homepage's three.
+- **`ALLOWED_ORIGINS` set and verified live:** a bogus origin gets no `access-control-allow-origin`
+  header, the custom domain and a Netlify preview subdomain are echoed back.
+- **A5:** types regenerated. The only diff is `heartbeat`, so nothing this app compiles against
+  moved. typecheck and build pass.
+- **B3 deployed** from the home repo and verified: all three `send-*` functions now refuse an
+  unknown origin, accept both homepage origins, and still reach reCAPTCHA correctly.
+
+**Fact 5 did not apply here.** `renegades-eu` was created 2026-09-15 and still carries the
+old-style default ACLs granting `anon`, `authenticated` and `service_role` on future tables, so
+A1 was belt-and-braces rather than load-bearing. It stays, because it keeps local and production
+agreeing and is what makes the migration correct on any newer project. One consequence to be
+aware of: `anon` holds table-level privileges on all four tables from that default ACL even
+though A1 deliberately grants it nothing, and only RLS keeps it out. That matches Lovable and
+the local stack. A follow-up migration could revoke `anon` explicitly if relying on RLS alone
+is not wanted.
+
+**Setting a secret redeploys every function.** `supabase secrets set` bumped all ten functions
+by one version, including the homepage's, because functions are restarted to pick up new env.
+It reuses the stored bundle rather than rebuilding, so it does *not* ship uncommitted or newly
+committed source - B3 still needed its own explicit deploy. Worth knowing before reading
+anything into a version number.
 
 ### Rehearsal artifacts
 
