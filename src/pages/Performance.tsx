@@ -534,14 +534,23 @@ const Performance = () => {
                 {/* Value */}
                 <div className="space-y-2">
                   <Label htmlFor="value">Value</Label>
-                  <Input
-                    id="value"
-                    name="value"
-                    type="number"
-                    step={isMetricType(selectedMetric) ? METRICS[selectedMetric].step : 0.01}
-                    min={0}
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="value"
+                      name="value"
+                      type="number"
+                      inputMode="decimal"
+                      step={isMetricType(selectedMetric) ? METRICS[selectedMetric].step : 0.01}
+                      min={0}
+                      className="pr-12"
+                      required
+                    />
+                    {/* The unit only appeared in the metric dropdown, so the coach had to
+                        remember whether this box wanted cm, seconds or reps. */}
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                      {metricUnit(selectedMetric)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Date */}
@@ -552,6 +561,8 @@ const Performance = () => {
                     name="entry_date"
                     type="date"
                     defaultValue={new Date().toISOString().split("T")[0]}
+                    // A measurement cannot have happened tomorrow.
+                    max={new Date().toISOString().split("T")[0]}
                     required
                   />
                 </div>
@@ -693,6 +704,7 @@ const Performance = () => {
               name="entry_date"
               type="date"
               defaultValue={editingEntry?.entry_date}
+              max={new Date().toISOString().split("T")[0]}
               required
             />
           </div>
