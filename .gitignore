@@ -28,3 +28,9 @@ dist-ssr
 
 # TypeScript incremental build state, written by `tsc -b`.
 *.tsbuildinfo
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright-mcp/

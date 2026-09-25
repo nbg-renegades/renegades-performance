@@ -15,7 +15,12 @@ pnpm install  # install dependencies
 pnpm dev      # dev server on http://localhost:8080
 ```
 
-Other scripts: `pnpm build`, `pnpm typecheck`, `pnpm lint`.
+Other scripts: `pnpm build`, `pnpm typecheck`, `pnpm lint`, `pnpm test`.
+
+`pnpm test` runs the Playwright suite in [`tests/`](./tests). Every Supabase call is
+intercepted and the session is seeded into localStorage, so it needs no backend, no
+credentials and no network — but it does need `.env` present, since it reads the project
+ref from there to match the client's auth storage key. `pnpm test:ui` opens the inspector.
 
 The package manager is pnpm, pinned by the `packageManager` field in `package.json`; run
 `corepack enable` once and the right version is used automatically. `pnpm-workspace.yaml`

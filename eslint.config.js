@@ -36,4 +36,15 @@ export default tseslint.config(
       "react-refresh/only-export-components": "off",
     },
   },
+  {
+    // Playwright fixtures take a callback named `use`, which the React hooks rule reads as
+    // a hook called outside a component. It is not one - these files never touch React.
+    // The empty-pattern rule catches `async ({}, use)`, which is Playwright's own idiom
+    // for a fixture that depends on nothing.
+    files: ["tests/**/*.ts", "playwright.config.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+      "no-empty-pattern": "off",
+    },
+  },
 );

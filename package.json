@@ -12,6 +12,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
     "typecheck": "tsc -b --force",
     "preview": "vite preview"
   },
@@ -68,6 +70,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
