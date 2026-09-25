@@ -25,3 +25,6 @@ dist-ssr
 
 # Local Supabase / Vite config. Values differ per environment; see .env.example.
 .env
+
+# TypeScript incremental build state, written by `tsc -b`.
+*.tsbuildinfo
