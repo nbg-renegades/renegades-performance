@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Pencil, Trash2 } from "lucide-react";
 import { POSITION_LABELS, type FootballPosition } from "@/lib/positionUtils";
 import { formatMetricValue, metricLabel, metricUnit } from "@/lib/metrics";
+import { buildIndex, improvement, improvementPercent, isBetter } from "@/lib/analytics";
+import { DeltaBadge, PersonalBestBadge } from "@/components/viz/DeltaBadge";
 import { cn } from "@/lib/utils";
 
 /**
@@ -48,6 +50,47 @@ export interface PerformanceEntryRow {
     last_name: string;
     position?: FootballPosition;
   };
+}
+
+/**
+ * What changed at each row, worked out once for the whole list.
+ *
+ * A log of values answers "what was recorded" and nothing else. The question a coach has while
+ * reading it is "is that better than last time", and until now the only way to find out was to
+ * scroll for the same player's previous row and do the subtraction. Both columns are derived,
+ * so nothing is stored and no existing row changes.
+ *
+ * Each row is judged against what that player had done *before that row's own date*, not
+ * against the newest value, so an older row still reads the way it read on the day.
+ */
+function buildRowContext(rows: PerformanceEntryRow[]) {
+  const index = buildIndex(rows);
+  const context = new Map<
+    string,
+    { improvement: number | null; percent: number | null; isRecord: boolean }
+  >();
+
+  for (const row of rows) {
+    const series = index.byPlayer.get(row.player_id)?.get(row.metric_type as never) ?? [];
+    const position = series.findIndex((a) => a.date === row.entry_date);
+    if (position === -1) continue;
+
+    const before = series.slice(0, position);
+    const previous = before.length > 0 ? before[before.length - 1] : null;
+    const previousBest = before.reduce<number | null>(
+      (best, a) => (best === null || isBetter(row.metric_type, a.value, best) ? a.value : best),
+      null,
+    );
+
+    context.set(row.id, {
+      improvement: previous ? improvement(row.metric_type, previous.value, row.value) : null,
+      percent: previous ? improvementPercent(row.metric_type, previous.value, row.value) : null,
+      // A first-ever measurement is not celebrated as a record: there was nothing to beat.
+      isRecord: previousBest !== null && isBetter(row.metric_type, row.value, previousBest),
+    });
+  }
+
+  return context;
 }
 
 type SortKey = "entry_date" | "player" | "metric_type" | "value";
@@ -119,6 +162,12 @@ interface Props {
   describeEntry: (entry: PerformanceEntryRow) => string;
   onEdit: (entry: PerformanceEntryRow) => void;
   onDelete: (entryId: string) => void;
+  /**
+   * The rows the change column is measured against, when the visible rows have been filtered.
+   * Filtering by metric or by player leaves each player's per-metric series intact, so the
+   * default is fine; a future filter that cuts a series short would need this.
+   */
+  deltaBasis?: PerformanceEntryRow[];
 }
 
 export function PerformanceEntriesTable({
@@ -129,11 +178,17 @@ export function PerformanceEntriesTable({
   describeEntry,
   onEdit,
   onDelete,
+  deltaBasis,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("entry_date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [page, setPage] = useState(0);
+
+  const rowContext = useMemo(
+    () => buildRowContext(deltaBasis ?? entries),
+    [deltaBasis, entries],
+  );
 
   const sorted = useMemo(() => {
     const factor = sortDirection === "asc" ? 1 : -1;
@@ -220,9 +275,9 @@ export function PerformanceEntriesTable({
     return { entry, groupHeading: key !== null && (i === 0 || key !== previousKey) ? key : null };
   });
 
-  // Date, Metric, Value, and the actions column when the viewer can edit anything.
+  // Date, Metric, Value, Change, and the actions column when the viewer can edit anything.
   const showActions = entries.some(canEdit);
-  const columnCount = 3 + (showPlayerColumn ? 2 : 0) + (showActions ? 1 : 0);
+  const columnCount = 4 + (showPlayerColumn ? 2 : 0) + (showActions ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -283,6 +338,11 @@ export function PerformanceEntriesTable({
                 sortKey={sortKey}
                 sortDirection={sortDirection}
                 onSort={toggleSort} className="text-right" align="right" />
+              {/* Not sortable: the change is relative to each row's own history, so ordering
+                  the whole list by it would compare a sprint's tenths against a jump's
+                  centimetres. Sorting by value still works, and the squad matrix is where
+                  "who improved most" is a first-class question. */}
+              <TableHead className="text-right text-muted-foreground">Change</TableHead>
               {showActions && <TableHead className="w-[5.5rem]" />}
             </TableRow>
           </TableHeader>
@@ -331,6 +391,17 @@ export function PerformanceEntriesTable({
                       {formatMetricValue(entry.metric_type, entry.value)}{" "}
                       <span className="text-xs font-normal text-muted-foreground">
                         {metricUnit(entry.metric_type) || entry.unit}
+                      </span>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-right">
+                      <span className="inline-flex items-center justify-end gap-1.5">
+                        {rowContext.get(entry.id)?.isRecord && <PersonalBestBadge />}
+                        <DeltaBadge
+                          metric={entry.metric_type}
+                          improvement={rowContext.get(entry.id)?.improvement ?? null}
+                          percent={rowContext.get(entry.id)?.percent ?? null}
+                          showUnit={false}
+                        />
                       </span>
                     </TableCell>
                     {showActions && (

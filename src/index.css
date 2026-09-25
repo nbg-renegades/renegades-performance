@@ -61,6 +61,53 @@ All colors MUST be HSL.
   /* Custom athletic tokens */
   --gradient-primary: linear-gradient(135deg, hsl(40 100% 50%), hsl(35 100% 45%));
   --gradient-dark: linear-gradient(180deg, hsl(0 0% 12%), hsl(0 0% 8%));
+
+  /*
+   * Data-visualisation tokens.
+   *
+   * These are the one exception to the HSL rule above, and deliberately so: they are
+   * validated hex values from a documented palette, checked with a script against this
+   * app's own surfaces rather than chosen by eye. Re-expressing them as HSL triplets would
+   * round them and cut the link back to the source they can be re-validated against.
+   *
+   * --viz-rank-* is an *ordinal* ramp: one hue, monotone lightness, bottom of the squad to
+   * top. It replaced a green/blue/yellow/orange scale, which was a rainbow - a multi-hue
+   * ramp for a magnitude, where adjacent classes blur and nothing says which end is good.
+   * The ramp only ever fills a meter whose *length* already carries the value, so colour is
+   * reinforcement and the dim bottom step never has to be read on its own.
+   *
+   * The status four are reserved for state and never used as series colours. Each is paired
+   * with an icon and a word wherever it appears, because a colour must never be the only
+   * thing carrying meaning. "serious" rather than "critical" marks a regression: at this
+   * app's surfaces critical clears 3:1 as a mark but not 4.5:1 as small text, so it is only
+   * ever an icon or a dot beside a label in an ordinary text colour.
+   */
+  --viz-rank-1: #184f95;
+  --viz-rank-2: #256abf;
+  --viz-rank-3: #3987e5;
+  --viz-rank-4: #6da7ec;
+  --viz-rank-5: #9ec5f4;
+
+  /*
+   * Series colours, for a chart that draws two players at once.
+   *
+   * The first is not the brand gold: at this app's surfaces gold sits above the lightness
+   * band a chart mark is meant to occupy, which is what makes a large translucent gold
+   * polygon shout. Snapping it to the nearest passing amber keeps it unmistakably on-brand
+   * while clearing every gate, and the pair separates by a wide margin under both
+   * protanopia and deuteranopia. Gold stays the interface accent it always was.
+   */
+  --viz-series-1: #c98500;
+  --viz-series-2: #3987e5;
+
+  --viz-good: #0ca30c;
+  --viz-warning: #fab219;
+  --viz-serious: #ec835a;
+  --viz-critical: #d03b3b;
+
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-neutral: #383835;
 }
 
 /* Maps the HSL triplets above onto Tailwind's theme namespaces. `inline` keeps the
@@ -107,6 +154,24 @@ All colors MUST be HSL.
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
+
+  --color-viz-rank-1: var(--viz-rank-1);
+  --color-viz-rank-2: var(--viz-rank-2);
+  --color-viz-rank-3: var(--viz-rank-3);
+  --color-viz-rank-4: var(--viz-rank-4);
+  --color-viz-rank-5: var(--viz-rank-5);
+
+  --color-viz-series-1: var(--viz-series-1);
+  --color-viz-series-2: var(--viz-series-2);
+
+  --color-viz-good: var(--viz-good);
+  --color-viz-warning: var(--viz-warning);
+  --color-viz-serious: var(--viz-serious);
+  --color-viz-critical: var(--viz-critical);
+
+  --color-viz-grid: var(--viz-grid);
+  --color-viz-axis: var(--viz-axis);
+  --color-viz-neutral: var(--viz-neutral);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

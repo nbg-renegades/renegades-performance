@@ -200,39 +200,36 @@ export async function mockSupabase(page: Page, captured: Captured, role: "admin"
       );
     }
 
-    if (path.includes("/functions/v1/get-player-neighborhood")) {
-      const percentiles = [92, 74, 55, 100, 31, 12];
-      return route.fulfill(
-        json(
-          METRICS.map((m, i) => ({
-            metric_type: m,
-            metric_name: LABELS[m],
-            unit: UNITS[m],
-            current_value: BASE[m],
-            next_best_player: i === 3 ? null : "Jonas Keller",
-            next_best_value: i === 3 ? null : BASE[m] * (UNITS[m] === "s" ? 0.97 : 1.03),
-            percentile: percentiles[i],
-          })),
-        ),
-      );
-    }
-
-    if (path.includes("/functions/v1/get-performance-benchmarks")) {
+    /**
+     * One standing function now answers what get-performance-benchmarks,
+     * get-performance-averages and get-player-neighborhood used to answer between them. It
+     * only exists for players - a coach computes the same figures in the browser from the
+     * entries - so the shape here is what a player receives, names withheld.
+     */
+    if (path.includes("/functions/v1/get-player-standing")) {
+      const standing = (n: number) =>
+        METRICS.map((m, i) => ({
+          metric_type: m,
+          percentile: [92, 74, 55, 100, 31, 12][i],
+          rank: [1, 2, 3, 1, 4, 5][i],
+          n,
+          median: BASE[m],
+          best: bestOf(m),
+          reliable: n >= 4,
+          current_value: BASE[m],
+          next_target_value: i === 3 ? null : BASE[m] * (UNITS[m] === "s" ? 0.97 : 1.03),
+          next_target_name: null,
+        }));
       return route.fulfill(
         json({
-          benchmarks: METRICS.map((m) => ({ metric_type: m, value: bestOf(m) })),
-          allData: ENTRIES.map((e) => ({ metric_type: e.metric_type, value: e.value })),
-          playerPosition: "QB",
+          team: standing(PLAYERS.length),
+          unit: standing(3),
+          position: standing(2),
+          position_label: "QB",
+          unit_label: "offense",
+          includes_names: false,
         }),
       );
-    }
-
-    if (path.includes("/functions/v1/get-performance-averages")) {
-      const averages = METRICS.map((m) => {
-        const values = ENTRIES.filter((e) => e.metric_type === m).map((e) => e.value as number);
-        return { metric_type: m, average_value: values.reduce((a, b) => a + b, 0) / values.length };
-      });
-      return route.fulfill(json({ all: averages, position: averages, unit: averages }));
     }
 
     return route.fulfill({ status: 200, headers, body: "[]" });
@@ -287,13 +284,25 @@ export async function seedSession(page: Page) {
   );
 }
 
-/** `signedIn` gives a page that is already authenticated against the mock backend. */
-export const test = base.extend<{ signedIn: Page; captured: Captured }>({
+/**
+ * `signedIn` gives a page that is already authenticated against the mock backend, as an admin.
+ *
+ * `signedInAsPlayer` is the same page with only the player role, which is a different app: no
+ * Team section, no Record session button, and a dashboard about themselves rather than the
+ * squad. Both fixtures are needed because most of what the role controls is the absence of
+ * something, and an admin-only suite cannot see an absence.
+ */
+export const test = base.extend<{ signedIn: Page; signedInAsPlayer: Page; captured: Captured }>({
   captured: async ({}, use) => {
     await use([]);
   },
   signedIn: async ({ page, captured }, use) => {
     await mockSupabase(page, captured);
+    await seedSession(page);
+    await use(page);
+  },
+  signedInAsPlayer: async ({ page, captured }, use) => {
+    await mockSupabase(page, captured, "player");
     await seedSession(page);
     await use(page);
   },

@@ -15,6 +15,7 @@ export const queryKeys = {
   currentUser: ["current-user"] as const,
   roles: (userId: string) => ["roles", userId] as const,
   roster: ["roster"] as const,
+  squad: ["squad"] as const,
   profiles: ["profiles"] as const,
   bestDailyEntries: ["best-daily-entries"] as const,
   entryDetails: (playerIds: string[]) => ["entry-details", [...playerIds].sort()] as const,
@@ -23,10 +24,9 @@ export const queryKeys = {
     ["metric-history", playerId, metric, months] as const,
   playerMetrics: (playerId: string) => ["player-metrics", playerId] as const,
   dashboardStats: ["dashboard-stats"] as const,
-  neighborhood: (playerId: string) => ["neighborhood", playerId] as const,
+  playerStanding: (playerId: string) => ["player-standing", playerId] as const,
   termsAccepted: (userId: string) => ["terms-accepted", userId] as const,
   users: ["users"] as const,
-  playersWithPositions: ["players-with-positions"] as const,
   ownProfile: (userId: string) => ["own-profile", userId] as const,
   entries: ["entries"] as const,
   session: ["session"] as const,
@@ -105,6 +105,41 @@ export async function fetchEntryDetails(playerIds: string[]) {
   };
 }
 
+export interface SquadMember extends RosterPlayer {
+  position: FootballPosition;
+  name: string;
+}
+
+/**
+ * The squad: everyone with the player role, in squad order, each with a position.
+ *
+ * This is the one roster every screen shares. It replaced a second one that started from
+ * `player_positions` instead, so a player nobody had assigned a position to simply did not
+ * exist in the comparison chart while appearing everywhere else - and an unassigned player is
+ * exactly the one a coach needs reminding about. Here a missing row means `'unassigned'`,
+ * which the group helpers already understand as "in no unit".
+ */
+export async function fetchSquad(): Promise<SquadMember[]> {
+  const players = await fetchRoster();
+  if (players.length === 0) return [];
+
+  const positionRows = unwrap(
+    await supabase
+      .from("player_positions")
+      .select("player_id, position")
+      .in("player_id", players.map((p) => p.id)),
+  );
+  const positionById = new Map(
+    (positionRows || []).map((p) => [p.player_id, p.position as FootballPosition]),
+  );
+
+  return players.map((player) => ({
+    ...player,
+    name: `${player.first_name} ${player.last_name}`,
+    position: positionById.get(player.id) ?? "unassigned",
+  }));
+}
+
 export async function fetchPlayerPosition(playerId: string): Promise<FootballPosition | null> {
   const row = unwrap(
     await supabase.from("player_positions").select("position").eq("player_id", playerId).maybeSingle(),
@@ -165,18 +200,39 @@ export function fetchDashboardStats() {
   return invokeFunction<DashboardStats>("get-dashboard-stats");
 }
 
-export interface MetricNeighborhood {
-  metric_type: string;
-  metric_name: string;
-  unit: string;
-  current_value: number | null;
-  next_best_player: string | null;
-  next_best_value: number | null;
+export interface MetricStanding {
+  metric_type: MetricType;
   percentile: number | null;
+  rank: number | null;
+  n: number;
+  median: number | null;
+  best: number | null;
+  reliable: boolean;
+  current_value: number | null;
+  next_target_value: number | null;
+  /** Only ever set for a coach or admin; the function withholds it from players. */
+  next_target_name: string | null;
 }
 
-export function fetchNeighborhood(playerId: string) {
-  return invokeFunction<MetricNeighborhood[]>("get-player-neighborhood", { player_id: playerId });
+export interface PlayerStanding {
+  team: MetricStanding[];
+  unit: MetricStanding[];
+  position: MetricStanding[];
+  position_label: string | null;
+  unit_label: "offense" | "defense" | null;
+  includes_names: boolean;
+}
+
+/**
+ * Group-relative numbers for one player, computed server-side.
+ *
+ * Only a player needs this. Row-level security means their browser holds their own rows and
+ * nobody else's, so a percentile cannot be worked out there. A coach already has the whole set
+ * and computes the same figures locally through `useSquadAnalytics`, which is why this is not
+ * on the path of any squad-wide screen.
+ */
+export function fetchPlayerStanding(playerId: string) {
+  return invokeFunction<PlayerStanding>("get-player-standing", { player_id: playerId });
 }
 
 export async function fetchTermsAccepted(userId: string): Promise<boolean> {
@@ -225,34 +281,6 @@ export async function fetchUsers(): Promise<UserProfile[]> {
     ...user,
     roles: rolesMap.get(user.id) || [],
     position: positionsMap.get(user.id),
-  }));
-}
-
-export interface PlayerWithPosition {
-  id: string;
-  name: string;
-  position: FootballPosition | null;
-}
-
-/** Players that have a position on file, which is what the comparison chart offers. */
-export async function fetchPlayersWithPositions(): Promise<PlayerWithPosition[]> {
-  const positions = unwrap(
-    await supabase.from("player_positions").select("player_id, position"),
-  );
-  if (!positions || positions.length === 0) return [];
-
-  const profiles = unwrap(
-    await supabase
-      .from("profiles")
-      .select("id, first_name, last_name")
-      .in("id", positions.map((p) => p.player_id)),
-  );
-
-  const positionById = new Map(positions.map((p) => [p.player_id, p.position as FootballPosition]));
-  return (profiles || []).map((profile) => ({
-    id: profile.id,
-    name: `${profile.first_name} ${profile.last_name}`,
-    position: positionById.get(profile.id) ?? null,
   }));
 }
 

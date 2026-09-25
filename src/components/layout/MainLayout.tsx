@@ -92,7 +92,7 @@ const MainLayout = () => {
         }
       >
         <div className="min-h-screen flex w-full bg-background">
-          <AppSidebar userRole={userRole} onViewTerms={() => setTermsOverride(true)} />
+          <AppSidebar onViewTerms={() => setTermsOverride(true)} />
           {/* min-w-0: a flex item defaults to min-width:auto, so this column could not
               shrink below its widest child and pushed the whole page sideways instead.
               That is what made /users scroll horizontally by 18px on a phone, and it would

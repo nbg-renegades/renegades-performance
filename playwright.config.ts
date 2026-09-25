@@ -18,8 +18,20 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    /**
+     * `*.unit.spec.ts` files test the pure modules in src/lib and never open a page, so they
+     * run once rather than once per device. Keeping them in this runner means the repo has
+     * one test command and one set of TypeScript settings instead of a second framework -
+     * `minimumReleaseAge` makes adding a dependency a five-day wait, and these tests need
+     * nothing Playwright does not already do.
+     */
+    { name: "unit", testMatch: /.*\.unit\.spec\.ts/ },
+    {
+      name: "desktop",
+      testIgnore: /.*\.unit\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+    },
+    { name: "mobile", testIgnore: /.*\.unit\.spec\.ts/, use: { ...devices["Pixel 7"] } },
   ],
   webServer: {
     command: `pnpm vite --port ${PORT} --strictPort`,

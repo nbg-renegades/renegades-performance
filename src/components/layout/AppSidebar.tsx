@@ -1,7 +1,15 @@
-import { LayoutDashboard, TrendingUp, Users, LogOut, Key, FileText } from "lucide-react";
+import {
+  FileText,
+  Key,
+  LayoutDashboard,
+  LogOut,
+  TrendingUp,
+  User,
+  UserCog,
+  Users,
+} from "lucide-react";
 import logo from "@/assets/logo.png";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router";
 import {
   Sidebar,
   SidebarContent,
@@ -19,16 +27,19 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router";
+import { useViewer } from "@/hooks/useViewer";
 
 interface AppSidebarProps {
-  userRole?: string;
   onViewTerms: () => void;
 }
 
-export function AppSidebar({ userRole, onViewTerms }: AppSidebarProps) {
+export function AppSidebar({ onViewTerms }: AppSidebarProps) {
   const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
+  // Read straight from the viewer rather than from a single "primary role" prop: a coach who is
+  // also a player has primary role "coach", which is not enough to decide whether they have a
+  // page of their own to link to.
+  const viewer = useViewer();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -54,13 +65,22 @@ export function AppSidebar({ userRole, onViewTerms }: AppSidebarProps) {
     }
   };
 
+  /**
+   * One "Performance" link used to lead everybody to the same three tabs. A coach and a player
+   * want different first screens, so the navigation now says so: a coach gets the squad, a
+   * player gets themselves, and both get the log.
+   *
+   * A coach who is also a player keeps "My page" - they have their own numbers to look at.
+   */
   const navItems = [
-    { title: "Dashboard", url: "/", icon: LayoutDashboard },
-    { title: "Performance", url: "/performance", icon: TrendingUp },
-    ...(userRole === "admin" ? [{ title: "Users", url: "/users", icon: Users }] : []),
+    { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
+    ...(viewer.isCoach ? [{ title: "Team", url: "/team", icon: Users, end: false }] : []),
+    ...(viewer.isPlayer ? [{ title: "My page", url: "/me", icon: User, end: false }] : []),
+    { title: "Log", url: "/log", icon: TrendingUp, end: false },
+    ...(viewer.isAdmin
+      ? [{ title: "Users", url: "/users", icon: UserCog, end: false }]
+      : []),
   ];
-
-  const isActive = (path: string) => location.pathname === path;
 
   // No width class on <Sidebar>: className lands on the fixed sidebar only, not on the
   // spacer that reserves its space, so the two silently disagreed - w-14 (56px) against a
@@ -91,7 +111,7 @@ export function AppSidebar({ userRole, onViewTerms }: AppSidebarProps) {
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end
+                      end={item.end}
                       onClick={handleNavClick}
                       className="hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"

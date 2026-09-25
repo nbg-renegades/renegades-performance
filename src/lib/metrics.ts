@@ -2,8 +2,8 @@
  * The one definition of what a performance metric is.
  *
  * This used to be spread across four places in the client - a `metricDisplayNames` map in
- * Performance.tsx, METRIC_LABELS/METRIC_UNITS here in performanceUtils, a local METRICS in
- * PlayerPerformanceChart, and a `unitMap` inside the add-entry handler - plus a separate
+ * Performance.tsx, METRIC_LABELS/METRIC_UNITS in a performanceUtils module, a local METRICS
+ * in PlayerPerformanceChart, and a `unitMap` inside the add-entry handler - plus a separate
  * copy in each edge function and a third encoding of "lower is better" in SQL. They had
  * already drifted: Performance.tsx baked the unit into the label and the others did not,
  * and get_best_daily_entries() was still ranking a metric name the enum had dropped, which
@@ -37,11 +37,6 @@ export interface MetricDefinition {
   /** Input granularity, and the number of decimals a value is rendered with. */
   step: number;
   precision: number;
-  /**
-   * Where the 0 end of the 0-100 comparison scale sits, as a multiple of the group's best:
-   * 1.4x the best time, half the best jump, a fifth of the best rep count.
-   */
-  baselineFactor: number;
 }
 
 export const METRICS: Record<MetricType, MetricDefinition> = {
@@ -52,7 +47,6 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'higher',
     step: 1,
     precision: 0,
-    baselineFactor: 1 / 2,
   },
   jump_gather: {
     key: 'jump_gather',
@@ -61,7 +55,6 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'higher',
     step: 1,
     precision: 0,
-    baselineFactor: 1 / 2,
   },
   '30yd_dash': {
     key: '30yd_dash',
@@ -70,7 +63,6 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'lower',
     step: 0.01,
     precision: 2,
-    baselineFactor: 1.4,
   },
   '3_cone_drill': {
     key: '3_cone_drill',
@@ -79,7 +71,6 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'lower',
     step: 0.01,
     precision: 2,
-    baselineFactor: 1.4,
   },
   shuttle_5_10_5: {
     key: 'shuttle_5_10_5',
@@ -88,7 +79,6 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'lower',
     step: 0.01,
     precision: 2,
-    baselineFactor: 1.4,
   },
   pushups_1min: {
     key: 'pushups_1min',
@@ -97,7 +87,6 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'higher',
     step: 1,
     precision: 0,
-    baselineFactor: 1 / 5,
   },
 };
 

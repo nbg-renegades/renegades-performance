@@ -3,14 +3,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys, fetchRoster, fetchMetricHistory } from "@/lib/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSearchParamState } from "@/hooks/useSearchParamState";
 import {
   METRICS,
   METRIC_OPTIONS,
+  isMetricType,
   metricLabel,
   metricLabelWithUnit,
   metricUnit,
@@ -21,6 +33,16 @@ interface PlayerPerformanceChartProps {
   currentUserId: string;
   userRole: string;
   selectedPlayerId?: string;
+  /**
+   * Hides the player dropdown. On a player's own page the subject is the page, so offering to
+   * switch to somebody else inside one card is how the old three-tab layout ended up with
+   * three independent dropdowns that disagreed with each other.
+   */
+  lockPlayer?: boolean;
+  /** The group median per metric, drawn as a reference line. */
+  medianByMetric?: Map<MetricType, number>;
+  /** The athlete's best ever value per metric, drawn as a reference line. */
+  personalBestByMetric?: Map<MetricType, number>;
 }
 
 type ZoomLevel = '1m' | '3m' | '6m' | '12m' | '18m' | '3y';
@@ -42,9 +64,21 @@ interface ChartPoint {
   dateLabel: string;
 }
 
-export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayerId }: PlayerPerformanceChartProps) {
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('3m');
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>('vertical_jump');
+export function PlayerPerformanceChart({
+  currentUserId,
+  userRole,
+  selectedPlayerId,
+  lockPlayer = false,
+  medianByMetric,
+  personalBestByMetric,
+}: PlayerPerformanceChartProps) {
+  // Both selections live in the URL, so a link to this chart carries the drill and the window
+  // it was showing. They were useState, which meant a coach could not send anyone what they
+  // were looking at.
+  const [rawZoom, setZoomLevel] = useSearchParamState('range', '3m');
+  const [rawMetric, setSelectedMetric] = useSearchParamState('metric', 'vertical_jump');
+  const zoomLevel = (rawZoom in ZOOM_LEVELS ? rawZoom : '3m') as ZoomLevel;
+  const selectedMetric = (isMetricType(rawMetric) ? rawMetric : 'vertical_jump') as MetricType;
   // Who the chart is showing is a choice layered over the props, not a copy of them. As
   // state synced by an effect it was always one render stale and re-ran on every prop
   // change; as a derived value there is nothing to keep in sync.
@@ -93,9 +127,19 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
   // against a 0-60 axis it draws as a flat line across the top of a 400px chart. Framing
   // the actual spread - with 10% padding, and a floor of half a unit so a single point or
   // a run of identical values still gets a sane axis - is what makes the trend visible.
+  const median = medianByMetric?.get(selectedMetric) ?? null;
+  const personalBest = personalBestByMetric?.get(selectedMetric) ?? null;
+
   const yDomain = (() => {
     if (chartData.length === 0) return [0, 'auto'] as const;
-    const values = chartData.map((d) => d.value as number);
+    // The reference lines are part of the picture, so they have to be inside the frame. Left
+    // out of this, a median below the plotted range simply would not be drawn and the chart
+    // would quietly claim the athlete had no context.
+    const values = [
+      ...chartData.map((d) => d.value as number),
+      ...(median !== null ? [median] : []),
+      ...(personalBest !== null ? [personalBest] : []),
+    ];
     const lo = Math.min(...values);
     const hi = Math.max(...values);
     const pad = Math.max((hi - lo) * 0.1, 0.5);
@@ -127,7 +171,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {isCoach && (
+          {isCoach && !lockPlayer && (
             <div className="space-y-2">
               <Label htmlFor="player-select">Select Player</Label>
               <Select value={activePlayerId} onValueChange={setChosenPlayerId}>
@@ -222,10 +266,40 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
                     new Date(label).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
                   }
                 />
-                <Legend 
+                <Legend
                   wrapperStyle={{ paddingTop: isMobile ? '10px' : '20px', fontSize: isMobile ? '10px' : '12px' }}
                 />
-                <Line 
+                {/* Two references that turn a bare line into something readable: the best this
+                    athlete has ever managed, and the middle of the group. A rising line means
+                    nothing until you know whether it is rising towards the squad or away from
+                    it. Solid hairlines, because a dashed rule reads as a projection. */}
+                {personalBest !== null && (
+                  <ReferenceLine
+                    y={personalBest}
+                    stroke="var(--viz-good)"
+                    strokeWidth={1}
+                    label={{
+                      value: 'Personal best',
+                      position: 'insideTopRight',
+                      fill: 'var(--viz-good)',
+                      fontSize: isMobile ? 9 : 11,
+                    }}
+                  />
+                )}
+                {median !== null && (
+                  <ReferenceLine
+                    y={median}
+                    stroke="var(--viz-axis)"
+                    strokeWidth={1}
+                    label={{
+                      value: 'Group median',
+                      position: 'insideBottomRight',
+                      fill: 'hsl(var(--muted-foreground))',
+                      fontSize: isMobile ? 9 : 11,
+                    }}
+                  />
+                )}
+                <Line
                   type="monotone" 
                   dataKey="value" 
                   stroke="hsl(var(--primary))" 

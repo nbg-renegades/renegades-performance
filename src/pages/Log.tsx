@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { queryKeys, fetchEntries, type PerformanceEntry } from "@/lib/queries";
+import { queryKeys, fetchEntries, fetchRoster, type PerformanceEntry } from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,16 +25,33 @@ import {
   metricUnit,
 } from "@/lib/metrics";
 import { z } from "zod";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { usePerformanceContext } from "./context";
+import { useViewer } from "@/hooks/useViewer";
 
-const PerformanceEntries = () => {
+/**
+ * The log: every measurement on file, with what changed at each one.
+ *
+ * This was /performance's index tab, which made a list of rows the first thing anybody saw -
+ * least useful of the three for a player, and for a coach a record of the past rather than a
+ * view of the squad. It is now a section of its own that a coach visits to correct or export
+ * data, while /team answers questions about it and /players/:id answers them about one athlete.
+ *
+ * The toolbar order is reversed from before: recording a whole drill for the squad is the
+ * primary action, because that is the one performed at the side of a pitch on a testing day.
+ * Adding a single entry was the primary button and the batch flow the outline one, which had
+ * it exactly backwards - a coach measuring twenty players used the quiet button twenty times.
+ */
+const Log = () => {
   const { toast } = useToast();
-  const isMobile = useIsMobile();
-  // Identity and roster are resolved once by PerformanceLayout and shared by all three
-  // tabs, rather than each route repeating auth.getUser() plus a user_roles lookup.
-  const { currentUserId, userRole, players, isLoading: isContextLoading } =
-    usePerformanceContext();
+  const viewer = useViewer();
+  const currentUserId = viewer.userId;
+  const userRole = viewer.role;
+
+  // Only a coach or admin ever picks another player, so only they fetch the roster.
+  const { data: players = [] } = useQuery({
+    queryKey: queryKeys.roster,
+    queryFn: fetchRoster,
+    enabled: viewer.isCoach,
+  });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
@@ -336,16 +353,27 @@ const PerformanceEntries = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <div>
+        <h1 className="mb-2 text-2xl font-bold md:text-3xl">Log</h1>
+        <p className="text-sm text-muted-foreground md:text-base">
+          Every measurement on file, and what changed at each one
+        </p>
+      </div>
+
       <div className="flex flex-wrap gap-2">
-          {(userRole === "coach" || userRole === "admin") && (
+          {viewer.isCoach && (
             <>
+              {/* Recording a drill for the whole squad leads, because that is the action a
+                  testing day is made of. It used to be the quiet outline button beside a
+                  primary "Add Entry", so measuring twenty players meant twenty trips through
+                  the single-entry dialog. */}
+              <Button onClick={() => setIsBatchDialogOpen(true)}>
+                <Users className="h-4 w-4 mr-2" />
+                Record session
+              </Button>
               <Button variant="outline" onClick={handleExportCSV}>
                 <Download className="h-4 w-4 mr-2" />
                 Export CSV
-              </Button>
-              <Button variant="outline" onClick={() => setIsBatchDialogOpen(true)}>
-                <Users className="h-4 w-4 mr-2" />
-                Batch Create
               </Button>
             </>
           )}
@@ -356,9 +384,9 @@ const PerformanceEntries = () => {
               title="Add Performance Entry"
               description="Record a new performance metric"
               trigger={
-                <Button>
+                <Button variant={viewer.isCoach ? "outline" : "default"}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Entry
+                  Add single entry
                 </Button>
               }
             >
@@ -461,9 +489,9 @@ const PerformanceEntries = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
-            Recent Entries
+            All measurements
           </CardTitle>
-          <CardDescription>Latest performance measurements</CardDescription>
+          <CardDescription>Best of each day, per player and drill. Change is against that player&apos;s previous test of the same drill.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className={`grid gap-3 mb-4 ${userRole === "player" ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-4"}`}>
@@ -621,4 +649,4 @@ const PerformanceEntries = () => {
   );
 };
 
-export default PerformanceEntries;
+export default Log;

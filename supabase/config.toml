@@ -9,14 +9,8 @@ verify_jwt = true
 [functions.delete-user]
 verify_jwt = true
 
-[functions.get-performance-benchmarks]
-verify_jwt = true
-
 [functions.reset-user-password]
 verify_jwt = true
 
-[functions.get-performance-averages]
-verify_jwt = true
-
-[functions.get-player-neighborhood]
+[functions.get-player-standing]
 verify_jwt = true
