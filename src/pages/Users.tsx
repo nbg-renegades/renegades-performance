@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { queryKeys, fetchUsers, type UserProfile } from "@/lib/queries";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -29,19 +31,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-interface UserProfile {
-  id: string;
-  username: string;
-  first_name: string;
-  last_name: string;
-  roles?: Array<{ role: string }>;
-  position?: string;
-}
-
 const Users = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -54,54 +46,15 @@ const Users = () => {
   const [userToResetPassword, setUserToResetPassword] = useState<UserProfile | null>(null);
   const [newPassword, setNewPassword] = useState("");
 
-  const fetchUsers = async () => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .order("last_name", { ascending: true })
-      .order("first_name", { ascending: true });
+  const queryClient = useQueryClient();
 
-    if (data) {
-      const userIds = data.map(u => u.id);
-      
-      // Batch fetch roles and positions in parallel
-      const [rolesResult, positionsResult] = await Promise.all([
-        supabase
-          .from("user_roles")
-          .select("user_id, role")
-          .in("user_id", userIds),
-        supabase
-          .from("player_positions")
-          .select("player_id, position")
-          .in("player_id", userIds)
-      ]);
+  const { data: users = [] } = useQuery({
+    queryKey: queryKeys.users,
+    queryFn: fetchUsers,
+  });
 
-      const rolesMap = new Map<string, Array<{ role: string }>>();
-      rolesResult.data?.forEach(r => {
-        if (!rolesMap.has(r.user_id)) {
-          rolesMap.set(r.user_id, []);
-        }
-        rolesMap.get(r.user_id)?.push({ role: r.role });
-      });
-
-      const positionsMap = new Map<string, string>();
-      positionsResult.data?.forEach(p => {
-        positionsMap.set(p.player_id, p.position);
-      });
-
-      const usersWithRoles = data.map(user => ({
-        ...user,
-        roles: rolesMap.get(user.id) || [],
-        position: positionsMap.get(user.id),
-      }));
-
-      setUsers(usersWithRoles);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  // Anything that writes a member, a role or a position makes this list stale.
+  const refreshUsers = () => queryClient.invalidateQueries({ queryKey: queryKeys.users });
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -174,7 +127,7 @@ const Users = () => {
 
       setIsDialogOpen(false);
       setSelectedRoles([]);
-      fetchUsers();
+      refreshUsers();
     } catch (error) {
       toast({
         title: "Error",
@@ -237,7 +190,7 @@ const Users = () => {
 
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
-      fetchUsers();
+      refreshUsers();
     } catch (error) {
       toast({
         title: "Error",
@@ -447,7 +400,7 @@ const Users = () => {
       setEditingUser(null);
       setSelectedRoles([]);
       setPrimaryPosition('unassigned');
-      fetchUsers();
+      refreshUsers();
     } catch (error) {
       toast({
         title: "Error",

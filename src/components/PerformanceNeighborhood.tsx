@@ -3,59 +3,25 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, Award, HelpCircle } from "lucide-react";
-
-interface MetricNeighborhood {
-  metric_type: string;
-  metric_name: string;
-  unit: string;
-  current_value: number | null;
-  next_best_player: string | null;
-  next_best_value: number | null;
-  percentile: number | null;
-}
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys, fetchNeighborhood, type MetricNeighborhood } from "@/lib/queries";
+import { errorMessage } from "@/lib/errors";
 
 interface PerformanceNeighborhoodProps {
   playerId: string;
 }
 
 export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodProps) {
-  const [data, setData] = useState<MetricNeighborhood[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function fetchNeighborhoodData() {
-    if (!playerId) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { data: result, error: fetchError } = await supabase.functions.invoke(
-        'get-player-neighborhood',
-        {
-          body: { player_id: playerId }
-        }
-      );
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      setData(result || []);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchNeighborhoodData();
-  }, [playerId]);
+  const {
+    data = [],
+    isPending,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.neighborhood(playerId),
+    queryFn: () => fetchNeighborhood(playerId),
+    enabled: !!playerId,
+  });
 
   // These carried `dark:` variants, but nothing ever sets the `.dark` class that
   // index.css's @custom-variant keys off - the theme is dark by default, straight from
@@ -76,7 +42,7 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
     return 'bg-orange-900 text-orange-100 border-orange-700';
   }
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <Card>
         <CardHeader>
@@ -101,13 +67,13 @@ export function PerformanceNeighborhood({ playerId }: PerformanceNeighborhoodPro
           <CardTitle>Neighborhood</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-destructive">{error}</p>
+          <p className="text-destructive">{errorMessage(error)}</p>
         </CardContent>
       </Card>
     );
   }
 
-  const metricsWithData = data.filter(m => m.current_value !== null);
+  const metricsWithData = data.filter((m: MetricNeighborhood) => m.current_value !== null);
 
   if (metricsWithData.length === 0) {
     return (

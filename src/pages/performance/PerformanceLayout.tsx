@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import {
+  queryKeys,
+  fetchCurrentUserId,
+  fetchRoles,
+  fetchRoster,
+  primaryRole,
+} from "@/lib/queries";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
-import type { PerformanceContext, PerformancePlayer } from "./context";
+import type { PerformanceContext } from "./context";
 
 /**
  * /performance used to be one route that owned everything: the history chart, the radar
@@ -28,68 +34,33 @@ const TABS = [
 ];
 
 const PerformanceLayout = () => {
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [userRole, setUserRole] = useState("");
-  const [players, setPlayers] = useState<PerformancePlayer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: currentUserId = "", isPending: userPending } = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: fetchCurrentUserId,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
+  const { data: roles = [], isPending: rolesPending } = useQuery({
+    queryKey: queryKeys.roles(currentUserId),
+    queryFn: () => fetchRoles(currentUserId),
+    enabled: !!currentUserId,
+  });
 
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
+  const userRole = primaryRole(roles);
+  const needsRoster = userRole === "coach" || userRole === "admin";
 
-      const { data: rolesData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id);
+  // Only coaches and admins ever pick another player, so only they fetch the roster.
+  const { data: players = [] } = useQuery({
+    queryKey: queryKeys.roster,
+    queryFn: fetchRoster,
+    enabled: needsRoster,
+  });
 
-      const roles = (rolesData || []).map((r) => r.role as string);
-      const role = roles.includes("admin")
-        ? "admin"
-        : roles.includes("coach")
-          ? "coach"
-          : roles.includes("player")
-            ? "player"
-            : "";
-
-      // Only coaches and admins ever pick another player, so only they need the roster.
-      let roster: PerformancePlayer[] = [];
-      if (role === "coach" || role === "admin") {
-        const { data: playerRoles } = await supabase
-          .from("user_roles")
-          .select("user_id")
-          .eq("role", "player");
-
-        const playerIds = (playerRoles || []).map((r) => r.user_id);
-        if (playerIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, first_name, last_name")
-            .in("id", playerIds)
-            .order("last_name", { ascending: true })
-            .order("first_name", { ascending: true });
-          roster = profiles || [];
-        }
-      }
-
-      if (cancelled) return;
-      setCurrentUserId(user.id);
-      setUserRole(role);
-      setPlayers(roster);
-      setIsLoading(false);
-    };
-
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const context: PerformanceContext = { currentUserId, userRole, players, isLoading };
+  const context: PerformanceContext = {
+    currentUserId: currentUserId ?? "",
+    userRole,
+    players,
+    isLoading: userPending || rolesPending,
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">

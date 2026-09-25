@@ -5,8 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { usePerformanceComparison, type ComparisonMode } from "@/hooks/usePerformanceComparison";
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys, fetchPlayersWithPositions, fetchPlayerPosition } from "@/lib/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 import { POSITION_OPTIONS, POSITION_LABELS, type FootballPosition, getPositionUnit } from "@/lib/positionUtils";
 
@@ -44,17 +45,43 @@ function getStrokeWidth(key: string): number {
 
 export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRadarChartProps) {
   const [mode, setMode] = useState<ComparisonMode>('best');
-  const [selectedPosition, setSelectedPosition] = useState<string>('');
-  const [playerUnit, setPlayerUnit] = useState<'offense' | 'defense' | null>(null);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
-  const [players, setPlayers] = useState<Array<{ id: string; name: string }>>([]);
-  const [isCoach, setIsCoach] = useState(false);
-  const [isCoachAndPlayer, setIsCoachAndPlayer] = useState(false);
+  const [chosenPosition, setChosenPosition] = useState<string | null>(null);
+  const [chosenPlayerId, setChosenPlayerId] = useState<string | null>(null);
+  const isCoach = userRole === 'coach' || userRole === 'admin';
   
   // Compare mode states
   const [compareBaseline, setCompareBaseline] = useState<'best' | 'offense' | 'defense'>('best');
   const [comparePlayer1, setComparePlayer1] = useState<string>('');
   const [comparePlayer2, setComparePlayer2] = useState<string>('');
+
+  // All of this used to be state written from two effects, which is why the tab set
+  // flickered on load and why picking a player took a render to settle. Only the two
+  // genuine choices - which player, which position - are state now; everything else
+  // follows from the roster query and the props.
+  const { data: playersWithPositions = [] } = useQuery({
+    queryKey: queryKeys.playersWithPositions,
+    queryFn: fetchPlayersWithPositions,
+    enabled: isCoach,
+  });
+
+  const players = playersWithPositions.map(({ id, name }) => ({ id, name }));
+  const isCoachAndPlayer = playersWithPositions.some((p) => p.id === currentUserId);
+  const selectedPlayerId = chosenPlayerId ?? (isCoachAndPlayer ? currentUserId : '');
+  const targetPlayerId = selectedPlayerId || currentUserId;
+
+  // A coach already has every position from the roster query; a player has to ask for
+  // their own, since they cannot read the whole table.
+  const positionFromRoster =
+    playersWithPositions.find((p) => p.id === targetPlayerId)?.position ?? null;
+  const { data: fetchedPosition = null } = useQuery({
+    queryKey: queryKeys.playerPosition(targetPlayerId),
+    queryFn: () => fetchPlayerPosition(targetPlayerId),
+    enabled: !!targetPlayerId && !positionFromRoster,
+  });
+
+  const position = positionFromRoster ?? fetchedPosition;
+  const playerUnit = position ? getPositionUnit(position) : null;
+  const selectedPosition = chosenPosition ?? position ?? '';
 
   const { data: comparisonData, isLoading, error, refetch, positionLabel, comparePlayerNames } = usePerformanceComparison({
     mode,
@@ -65,94 +92,6 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
     comparePlayer2Id: comparePlayer2,
     compareBaseline
   });
-
-  async function fetchPlayerUnit(playerId?: string) {
-    const targetId = playerId || currentUserId;
-    if (!targetId) return;
-    
-    const { data } = await supabase
-      .from('player_positions')
-      .select('position')
-      .eq('player_id', targetId)
-      .maybeSingle();
-    
-    if (data) {
-      const position = data.position as FootballPosition;
-      const unit = getPositionUnit(position);
-      setPlayerUnit(unit);
-      // Set the selected position to the player's actual position
-      setSelectedPosition(position);
-    } else {
-      setPlayerUnit(null);
-    }
-  }
-
-  async function fetchAllPlayers() {
-    // Fetch all players with positions
-    const { data: playerData } = await supabase
-      .from('player_positions')
-      .select('player_id, position');
-    
-    if (!playerData) return;
-
-    // Fetch profile information for all players
-    const playerIds = playerData.map(p => p.player_id);
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name')
-      .in('id', playerIds);
-
-    if (!profiles) return;
-
-    const playerList = profiles.map(profile => ({
-      id: profile.id,
-      name: `${profile.first_name} ${profile.last_name}`
-    }));
-
-    setPlayers(playerList);
-
-    // Check if current coach is also a player
-    const coachIsPlayer = playerData.some(p => p.player_id === currentUserId);
-    setIsCoachAndPlayer(coachIsPlayer);
-    
-    if (coachIsPlayer) {
-      setSelectedPlayerId(currentUserId);
-      const position = playerData.find(p => p.player_id === currentUserId)?.position as FootballPosition;
-      if (position) {
-        const unit = getPositionUnit(position);
-        setPlayerUnit(unit);
-        setSelectedPosition(position);
-      }
-    } else {
-      // Default to empty for non-player coaches
-      setSelectedPlayerId('');
-      setPlayerUnit(null);
-      setSelectedPosition('');
-    }
-  }
-
-  useEffect(() => {
-    // Check if user is a coach
-    const checkCoach = userRole === 'coach' || userRole === 'admin';
-    setIsCoach(checkCoach);
-
-    // If coach, fetch all players and check if coach is also a player
-    if (checkCoach) {
-      fetchAllPlayers();
-    } else {
-      // Always check player unit for non-coaches
-      fetchPlayerUnit();
-    }
-  }, [currentUserId, userRole]);
-
-  useEffect(() => {
-    // Update player unit when selected player changes
-    if (selectedPlayerId) {
-      fetchPlayerUnit(selectedPlayerId);
-    } else if (!isCoach) {
-      fetchPlayerUnit();
-    }
-  }, [selectedPlayerId, isCoach]);
 
   // Transform data for recharts - match metrics by name, not by index
   const chartData = Object.keys(comparisonData).length > 0
@@ -198,7 +137,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
         {isCoach && (
           <div className="mb-4 space-y-2">
             <Label htmlFor="player-select">Select Player</Label>
-            <Select value={selectedPlayerId} onValueChange={setSelectedPlayerId}>
+            <Select value={selectedPlayerId} onValueChange={setChosenPlayerId}>
               <SelectTrigger id="player-select" className="bg-background">
                 <SelectValue placeholder="Select a player..." />
               </SelectTrigger>
@@ -253,7 +192,7 @@ export function PerformanceRadarChart({ currentUserId, userRole }: PerformanceRa
             <TabsContent value="position" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="position-select">Select Position</Label>
-                <Select value={selectedPosition} onValueChange={setSelectedPosition}>
+                <Select value={selectedPosition} onValueChange={setChosenPosition}>
                   <SelectTrigger id="position-select" className="bg-background">
                     <SelectValue />
                   </SelectTrigger>

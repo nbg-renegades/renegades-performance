@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router";
-import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import {
+  queryKeys,
+  fetchCurrentUserId,
+  fetchRoles,
+  fetchOwnProfile,
+  fetchDashboardStats,
+  fetchPlayerMetrics,
+} from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, Users, Target, AlertCircle, Clock, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -46,128 +54,59 @@ const QuickAction = ({
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    totalPlayers: 0,
-    teamRecentEntries: 0,
-    userRecentEntries: 0,
-    userRoles: [] as string[],
-    userName: "",
-    userId: "",
-    userPosition: "",
+  const { data: userId = "" } = useQuery({
+    queryKey: queryKeys.currentUser,
+    queryFn: fetchCurrentUserId,
   });
-  const [metricStatuses, setMetricStatuses] = useState<MetricStatus[]>([]);
-  const [teamBestAllTime, setTeamBestAllTime] = useState<TeamBestMetric[]>([]);
-  const [teamBestSixMonths, setTeamBestSixMonths] = useState<TeamBestMetric[]>([]);
 
-  const fetchDashboardData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const { data: roles = [] } = useQuery({
+    queryKey: queryKeys.roles(userId),
+    queryFn: () => fetchRoles(userId),
+    enabled: !!userId,
+  });
 
-    // Get user profile, roles, and position in parallel
-    const [profileResult, rolesResult, positionResult] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("first_name, last_name")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id),
-      supabase
-        .from("player_positions")
-        .select("position")
-        .eq("player_id", user.id)
-        .maybeSingle()
-    ]);
+  const { data: profile } = useQuery({
+    queryKey: queryKeys.ownProfile(userId),
+    queryFn: () => fetchOwnProfile(userId),
+    enabled: !!userId,
+  });
 
-    const profile = profileResult.data;
-    const roles = (rolesResult.data || []).map((r) => r.role);
-    const position = positionResult.data?.position || "unassigned";
+  const { data: aggregated } = useQuery({
+    queryKey: queryKeys.dashboardStats,
+    queryFn: fetchDashboardStats,
+    enabled: !!userId,
+  });
 
-    // Fetch aggregated stats and team bests from backend
-    const { data: aggregatedStats, error: statsError } = await supabase.functions.invoke(
-      'get-dashboard-stats',
-      {
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-      }
-    );
+  const { data: ownEntries = [] } = useQuery({
+    queryKey: queryKeys.playerMetrics(userId),
+    queryFn: () => fetchPlayerMetrics(userId),
+    enabled: !!userId,
+  });
 
-    if (statsError) {
-      console.error('Error fetching dashboard stats:', statsError);
-    }
+  const teamBestAllTime: TeamBestMetric[] = aggregated?.teamBestAllTime ?? [];
+  const teamBestSixMonths: TeamBestMetric[] = aggregated?.teamBestSixMonths ?? [];
 
-    setStats({
-      totalPlayers: aggregatedStats?.totalPlayers || 0,
-      teamRecentEntries: aggregatedStats?.teamRecentEntries || 0,
-      userRecentEntries: aggregatedStats?.userRecentEntries || 0,
-      userRoles: roles,
-      userName: profile ? `${profile.first_name} ${profile.last_name}` : "",
-      userId: user.id,
-      userPosition: position,
-    });
-
-    // Set team best performances from backend response
-    if (aggregatedStats?.teamBestAllTime) {
-      setTeamBestAllTime(aggregatedStats.teamBestAllTime);
-    }
-    if (aggregatedStats?.teamBestSixMonths) {
-      setTeamBestSixMonths(aggregatedStats.teamBestSixMonths);
-    }
-  };
-
-
-  const fetchMetricStatuses = async () => {
-    const allMetrics = getAllMetricTypes();
+  // Which of the six metrics this player is missing, and which have gone stale. Derived
+  // from the entries rather than recomputed into state by a second effect.
+  const metricStatuses: MetricStatus[] = useMemo(() => {
+    if (!userId) return [];
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    // Batch query: Fetch all player entries at once
-    const { data: allPlayerEntries } = await supabase
-      .from('performance_entries')
-      .select('entry_date, value, metric_type')
-      .eq('player_id', stats.userId)
-      .in('metric_type', allMetrics)
-      .order('entry_date', { ascending: false });
+    return getAllMetricTypes().map((metric) => {
+      const forMetric = ownEntries.filter((e) => e.metric_type === metric);
+      if (forMetric.length === 0) return { metric, status: "missing" as const };
 
-    const statuses: MetricStatus[] = [];
-
-    allMetrics.forEach(metric => {
-      const metricEntries = allPlayerEntries?.filter(e => e.metric_type === metric) || [];
-      
-      if (metricEntries.length === 0) {
-        statuses.push({ metric, status: 'missing' });
-      } else {
-        // Latest entry is first due to order by
-        const latestEntry = metricEntries[0];
-        const lastEntryDate = new Date(latestEntry.entry_date);
-        const isOutdated = lastEntryDate < threeMonthsAgo;
-        
-        const bestValue = bestOf(metric, metricEntries.map(e => e.value));
-
-        statuses.push({
-          metric,
-          status: isOutdated ? 'outdated' : 'current',
-          lastEntry: lastEntryDate,
-          bestValue,
-        });
-      }
+      // fetchPlayerMetrics orders newest first, so the head is the latest entry.
+      const lastEntry = new Date(forMetric[0].entry_date);
+      return {
+        metric,
+        status: lastEntry < threeMonthsAgo ? ("outdated" as const) : ("current" as const),
+        lastEntry,
+        bestValue: bestOf(metric, forMetric.map((e) => e.value)),
+      };
     });
-
-    setMetricStatuses(statuses);
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  useEffect(() => {
-    if (stats.userId) {
-      fetchMetricStatuses();
-    }
-  }, [stats.userId]);
+  }, [ownEntries, userId]);
 
   const roleDisplayNames = {
     admin: "Administrator",
@@ -175,15 +114,15 @@ const Dashboard = () => {
     player: "Player",
   };
 
-  const displayRoles = stats.userRoles.map(role => roleDisplayNames[role as keyof typeof roleDisplayNames]).filter(Boolean).join(", ") || "User";
-  const primaryRole = stats.userRoles.includes("admin") ? "admin" :
-                     stats.userRoles.includes("coach") ? "coach" :
-                     stats.userRoles.includes("player") ? "player" : "";
+  const displayRoles = roles.map(role => roleDisplayNames[role as keyof typeof roleDisplayNames]).filter(Boolean).join(", ") || "User";
+  const primaryRole = roles.includes("admin") ? "admin" :
+                     roles.includes("coach") ? "coach" :
+                     roles.includes("player") ? "player" : "";
 
   return (
     <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {stats.userName || "User"}!</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {profile?.name || "User"}!</h1>
         <p className="text-sm md:text-base text-muted-foreground">Role: {displayRoles}</p>
       </div>
 
@@ -194,7 +133,7 @@ const Dashboard = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.totalPlayers}</div>
+            <div className="text-2xl font-bold text-primary">{(aggregated?.totalPlayers ?? 0)}</div>
             <p className="text-xs text-muted-foreground mt-1">Active team members</p>
           </CardContent>
         </Card>
@@ -207,12 +146,12 @@ const Dashboard = () => {
           <CardContent>
             <div className="space-y-2">
               <div>
-                <div className="text-2xl font-bold text-primary">{stats.teamRecentEntries}</div>
+                <div className="text-2xl font-bold text-primary">{(aggregated?.teamRecentEntries ?? 0)}</div>
                 <p className="text-xs text-muted-foreground">Team entries (last 30 days)</p>
               </div>
               {primaryRole === "player" && (
                 <div className="pt-2 border-t border-border/50">
-                  <div className="text-xl font-bold text-primary">{stats.userRecentEntries}</div>
+                  <div className="text-xl font-bold text-primary">{(aggregated?.userRecentEntries ?? 0)}</div>
                   <p className="text-xs text-muted-foreground">Your entries (last 30 days)</p>
                 </div>
               )}
@@ -222,16 +161,16 @@ const Dashboard = () => {
 
         <Card className="border-border/50 shadow-card">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Your Role{stats.userRoles.length > 1 ? 's' : ''}</CardTitle>
+            <CardTitle className="text-sm font-medium">Your Role{roles.length > 1 ? 's' : ''}</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-primary">{displayRoles}</div>
-            <p className="text-xs text-muted-foreground mt-1">Access level{stats.userRoles.length > 1 ? 's' : ''}</p>
-            {stats.userPosition && stats.userPosition !== "unassigned" && (
+            <p className="text-xs text-muted-foreground mt-1">Access level{roles.length > 1 ? 's' : ''}</p>
+            {profile?.position && profile?.position !== "unassigned" && (
               <div className="mt-3 pt-3 border-t border-border/50">
                 <div className="text-sm font-medium text-muted-foreground">Position</div>
-                <div className="text-lg font-bold text-primary mt-1">{stats.userPosition}</div>
+                <div className="text-lg font-bold text-primary mt-1">{profile?.position}</div>
               </div>
             )}
           </CardContent>

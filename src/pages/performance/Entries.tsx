@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { queryKeys, fetchEntries, type PerformanceEntry } from "@/lib/queries";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,20 +28,6 @@ import { z } from "zod";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { usePerformanceContext } from "./context";
 
-interface PerformanceEntry {
-  id: string;
-  entry_date: string;
-  metric_type: string;
-  value: number;
-  unit: string;
-  player_id: string;
-  player?: {
-    first_name: string;
-    last_name: string;
-    position?: FootballPosition;
-  };
-}
-
 const PerformanceEntries = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
@@ -47,7 +35,6 @@ const PerformanceEntries = () => {
   // tabs, rather than each route repeating auth.getUser() plus a user_roles lookup.
   const { currentUserId, userRole, players, isLoading: isContextLoading } =
     usePerformanceContext();
-  const [entries, setEntries] = useState<PerformanceEntry[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
@@ -60,84 +47,23 @@ const PerformanceEntries = () => {
   const [filterUnit, setFilterUnit] = useState<string>("all");
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
 
-  // Debounced refresh to prevent rapid successive calls
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const FETCH_COOLDOWN = 1000; // 1 second cooldown
+  const queryClient = useQueryClient();
 
-  const fetchData = async () => {
-    if (!currentUserId) return;
+  const { data: entries = [] } = useQuery({
+    queryKey: queryKeys.entries,
+    queryFn: fetchEntries,
+    enabled: !!currentUserId,
+  });
 
-    // Rate limiting: Check cooldown
-    const now = Date.now();
-    if (now - lastFetchTime < FETCH_COOLDOWN) {
-      return; // Skip if called too soon
-    }
-    setLastFetchTime(now);
-
-    // Fetch performance entries using best daily entries RPC
-    // This ensures only the best entry per metric per day per player is shown
-    const { data: bestDailyData, error: bestDailyError } = await supabase
-      .rpc('get_best_daily_entries');
-
-    if (bestDailyError) {
-      console.error("Error fetching entries:", bestDailyError);
-      toast({
-        title: "Error",
-        description: "Failed to load performance entries",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // The RPC already restricts players to their own rows, so no client-side filter.
-    const entriesData = bestDailyData || [];
-
-    // Fetch player names and positions for all entries
-    const playerIdsToFetch = [...new Set(entriesData.map((e) => e.player_id))];
-    const [playerProfilesResult, playerPositionsResult] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', playerIdsToFetch),
-      supabase
-        .from('player_positions')
-        .select('player_id, position')
-        .in('player_id', playerIdsToFetch)
-    ]);
-
-    const playerMap = new Map(
-      (playerProfilesResult.data || []).map(p => [p.id, p])
-    );
-
-    const positionMap = new Map(
-      (playerPositionsResult.data || []).map(p => [p.player_id, p.position])
-    );
-
-    // Transform entries to match our interface
-    const transformedEntries: PerformanceEntry[] = entriesData.map((entry) => {
-      const profile = playerMap.get(entry.player_id);
-      const position = positionMap.get(entry.player_id);
-      return {
-        id: entry.id,
-        entry_date: entry.entry_date,
-        metric_type: entry.metric_type,
-        value: entry.value,
-        unit: entry.unit,
-        player_id: entry.player_id,
-        player: profile ? {
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          position: position as FootballPosition,
-        } : undefined,
-      };
-    });
-
-    setEntries(transformedEntries);
+  /**
+   * Replaces both the hand-rolled 1s FETCH_COOLDOWN and the manual refetch after every
+   * write. The dashboard's team bests are computed from the same rows, so they go stale
+   * at the same moment.
+   */
+  const refreshEntries = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.entries });
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboardStats });
   };
-
-  useEffect(() => {
-    fetchData();
-  }, [currentUserId]);
 
   const handleAddEntry = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -188,7 +114,7 @@ const PerformanceEntries = () => {
       });
 
       setIsDialogOpen(false);
-      fetchData();
+      refreshEntries();
     } catch (error) {
       toast({
         title: "Error",
@@ -246,7 +172,7 @@ const PerformanceEntries = () => {
       });
 
       setEditingEntry(null);
-      fetchData();
+      refreshEntries();
     } catch (error) {
       toast({
         title: "Error",
@@ -276,7 +202,7 @@ const PerformanceEntries = () => {
       });
 
       setDeletingEntryId(null);
-      fetchData();
+      refreshEntries();
     } catch (error) {
       toast({
         title: "Error",
@@ -688,7 +614,7 @@ const PerformanceEntries = () => {
           onOpenChange={setIsBatchDialogOpen}
           players={players}
           currentUserId={currentUserId}
-          onSuccess={fetchData}
+          onSuccess={refreshEntries}
         />
       )}
     </div>

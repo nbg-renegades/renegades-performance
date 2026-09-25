@@ -21,7 +21,22 @@ const PerformanceEntries = lazy(() => import("./pages/performance/Entries"));
 const PerformanceHistory = lazy(() => import("./pages/performance/History"));
 const PerformanceComparison = lazy(() => import("./pages/performance/Comparison"));
 
-const queryClient = new QueryClient();
+/**
+ * Defaults chosen for a club app rather than a dashboard: measurements are entered a
+ * handful of times a week, so treating data as fresh for a minute removes the repeated
+ * round-trips the old fetch-per-mount code made, and refetching every time the window
+ * regains focus would be noise. Anything that has just been written invalidates its own
+ * key, so a save still shows up immediately.
+ */
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const RouteFallback = () => (
   <div className="flex min-h-[40vh] items-center justify-center">

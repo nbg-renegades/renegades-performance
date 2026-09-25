@@ -1,105 +1,65 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Outlet } from "react-router";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  queryKeys,
+  fetchSession,
+  fetchRoles,
+  fetchTermsAccepted,
+  primaryRole,
+} from "@/lib/queries";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { User, Session } from "@supabase/supabase-js";
 import logo from "@/assets/logo.png";
 import { TermsDialog } from "@/components/TermsDialog";
 
 const MainLayout = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<string | undefined>();
-  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
-  const [showTermsDialog, setShowTermsDialog] = useState(false);
+  const queryClient = useQueryClient();
 
+  const { data: session, isPending: sessionPending } = useQuery({
+    queryKey: queryKeys.session,
+    queryFn: fetchSession,
+  });
+  const userId = session?.user?.id ?? "";
+
+  // Auth is a genuine external subscription, so it keeps an effect - but the effect only
+  // tells react-query the session moved. It owns no state of its own, which is what the
+  // old version got wrong: it mirrored the session into three useStates and then chased
+  // them with a setTimeout(0) to fetch the role.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserRole(session.user.id);
-          }, 0);
-        }
-      }
-    );
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-      }
-      setLoading(false);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.session });
     });
-
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
-  const fetchUserRole = async (userId: string) => {
-    if (!userId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId);
+  const { data: roles = [] } = useQuery({
+    queryKey: queryKeys.roles(userId),
+    queryFn: () => fetchRoles(userId),
+    enabled: !!userId,
+  });
+  const userRole = primaryRole(roles) || undefined;
 
-      if (!error && data && data.length > 0) {
-        // Get all roles
-        const roles = data.map(r => r.role);
-        
-        // Set the highest priority role (admin > coach > player)
-        if (roles.includes("admin")) {
-          setUserRole("admin");
-        } else if (roles.includes("coach")) {
-          setUserRole("coach");
-        } else if (roles.includes("player")) {
-          setUserRole("player");
-        }
-      }
-    } catch (error) {
-      // Silently handle errors during role fetching
-    }
-  };
+  const { data: termsAccepted } = useQuery({
+    queryKey: queryKeys.termsAccepted(userId),
+    queryFn: () => fetchTermsAccepted(userId),
+    enabled: !!userId,
+  });
 
-  const checkTermsAcceptance = async (userId: string) => {
-    if (!userId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("terms_accepted_at")
-        .eq("id", userId)
-        .single();
-
-      if (!error && data) {
-        const hasAccepted = !!data.terms_accepted_at;
-        setTermsAccepted(hasAccepted);
-        setShowTermsDialog(!hasAccepted);
-      }
-    } catch (error) {
-      // Silently handle errors
-    }
-  };
-
-  useEffect(() => {
-    if (user) {
-      checkTermsAcceptance(user.id);
-    }
-  }, [user]);
+  // The dialog opens by itself for anyone who has not accepted yet, and the sidebar can
+  // force it open for someone who wants to re-read the terms.
+  const [termsOverride, setTermsOverride] = useState<boolean | null>(null);
+  const showTermsDialog = termsOverride ?? termsAccepted === false;
 
   const handleTermsAccept = () => {
-    setTermsAccepted(true);
-    setShowTermsDialog(false);
+    setTermsOverride(false);
+    queryClient.invalidateQueries({ queryKey: queryKeys.termsAccepted(userId) });
   };
 
-  if (loading) {
+  if (sessionPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse text-primary">Loading...</div>
@@ -107,7 +67,7 @@ const MainLayout = () => {
     );
   }
 
-  if (!user) {
+  if (!session?.user) {
     return <Navigate to="/auth" replace />;
   }
 
@@ -132,7 +92,7 @@ const MainLayout = () => {
         }
       >
         <div className="min-h-screen flex w-full bg-background">
-          <AppSidebar userRole={userRole} onViewTerms={() => setShowTermsDialog(true)} />
+          <AppSidebar userRole={userRole} onViewTerms={() => setTermsOverride(true)} />
           {/* min-w-0: a flex item defaults to min-width:auto, so this column could not
               shrink below its widest child and pushed the whole page sideways instead.
               That is what made /users scroll horizontally by 18px on a phone, and it would

@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys, fetchRoster, fetchMetricHistory } from "@/lib/queries";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -33,12 +34,6 @@ const ZOOM_LEVELS: Record<ZoomLevel, { label: string; months: number }> = {
   '3y': { label: '3 Years', months: 36 },
 };
 
-interface Player {
-  id: string;
-  first_name: string;
-  last_name: string;
-}
-
 interface ChartPoint {
   /** Epoch millis; the X axis is a time scale, so the key has to be numeric. */
   ts: number;
@@ -50,84 +45,38 @@ interface ChartPoint {
 export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayerId }: PlayerPerformanceChartProps) {
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('3m');
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('vertical_jump');
-  const [chartData, setChartData] = useState<ChartPoint[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
   // Who the chart is showing is a choice layered over the props, not a copy of them. As
   // state synced by an effect it was always one render stale and re-ran on every prop
   // change; as a derived value there is nothing to keep in sync.
   const [chosenPlayerId, setChosenPlayerId] = useState<string | null>(null);
   const activePlayerId = chosenPlayerId ?? selectedPlayerId ?? currentUserId;
-  const [isLoading, setIsLoading] = useState(false);
   const isMobile = useIsMobile();
 
-  async function fetchPlayers() {
-    const { data: playerRoles } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .eq('role', 'player');
+  const isCoach = userRole === 'coach' || userRole === 'admin';
 
-    if (playerRoles && playerRoles.length > 0) {
-      const playerIds = playerRoles.map(r => r.user_id);
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name')
-        .in('id', playerIds)
-        .order('first_name');
-      
-      if (data) {
-        setPlayers(data as Player[]);
-      }
-    }
-  }
+  const { data: players = [] } = useQuery({
+    queryKey: queryKeys.roster,
+    queryFn: fetchRoster,
+    enabled: isCoach,
+  });
 
-  async function fetchChartData() {
-    setIsLoading(true);
-    try {
-      const months = ZOOM_LEVELS[zoomLevel].months;
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - months);
+  const months = ZOOM_LEVELS[zoomLevel].months;
+  const { data: historyRows = [], isPending: isLoading } = useQuery({
+    queryKey: queryKeys.metricHistory(activePlayerId, selectedMetric, months),
+    queryFn: () => fetchMetricHistory(activePlayerId, selectedMetric, months),
+    enabled: !!activePlayerId,
+  });
 
-      const { data } = await supabase
-        .from('performance_entries')
-        .select('entry_date, value')
-        .eq('player_id', activePlayerId)
-        .eq('metric_type', selectedMetric)
-        .gte('entry_date', startDate.toISOString().split('T')[0])
-        .lte('entry_date', endDate.toISOString().split('T')[0])
-        .order('entry_date', { ascending: true });
-
-      const dbData = data || [];
-      
-      // Only include dates where we have actual data, but maintain time scale
-      const formattedData: ChartPoint[] = dbData.map((entry) => ({
-        ts: new Date(entry.entry_date).getTime(),
-        value: entry.value,
-        isoDate: entry.entry_date,
-        dateLabel: new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
-      }));
-      
-      setChartData(formattedData);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error fetching chart data:', error);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (userRole === 'coach' || userRole === 'admin') {
-      fetchPlayers();
-    }
-  }, [userRole]);
-
-  useEffect(() => {
-    if (activePlayerId) {
-      fetchChartData();
-    }
-  }, [zoomLevel, selectedMetric, activePlayerId]);
+  const chartData: ChartPoint[] = historyRows.map((entry) => ({
+    ts: new Date(entry.entry_date).getTime(),
+    value: entry.value,
+    isoDate: entry.entry_date,
+    dateLabel: new Date(entry.entry_date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: '2-digit',
+    }),
+  }));
 
   const chartHeight = isMobile ? 250 : 400;
 
@@ -178,7 +127,7 @@ export function PlayerPerformanceChart({ currentUserId, userRole, selectedPlayer
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(userRole === 'coach' || userRole === 'admin') && (
+          {isCoach && (
             <div className="space-y-2">
               <Label htmlFor="player-select">Select Player</Label>
               <Select value={activePlayerId} onValueChange={setChosenPlayerId}>
