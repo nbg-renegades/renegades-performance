@@ -19,28 +19,13 @@
 --
 -- Everything upstream sends is treated as data: no column here is ever interpolated into SQL
 -- or rendered as HTML, and the sync validates every response against a schema before writing.
-
--- ── Teams ────────────────────────────────────────────────────────────────────
-
--- Club-maintained display data. LeagueSphere's API only ever gives short forms ("Nürn",
--- "LLions") and exposes no logos at all, so the readable name and the logo path are ours.
 --
--- Deliberately NOT referenced by a foreign key from the tables below. Those carry upstream
--- team ids for every opponent in a league, and this table only holds the ones we have
--- something to say about — an FK would force us to mirror every club in Germany.
-create table if not exists public.results_teams (
-  -- LeagueSphere's own team id, which is stable and is what every other table joins on.
-  id bigint primary key,
-  name text not null,
-  short_name text,
-  -- Path under the site's assets, e.g. 'assets/images/logos/159.png'. No URL, so the site
-  -- can move its asset host without a data migration.
-  logo_path text,
-  updated_at timestamptz not null default now()
-);
-
-comment on table public.results_teams is
-  'Club-maintained team display names and logo paths, keyed by LeagueSphere team id.';
+-- There is deliberately no teams table. LeagueSphere exposes only short forms ("Nürn",
+-- "LLions") and no logos at all, so the readable names and the logo files are the club's own —
+-- and they live in the website's repo as a committed JSON asset beside the images it names,
+-- maintained the same way the roster and the sponsors are. Keeping them there means adding a
+-- club is a pull request rather than a database write, and nothing here has to be seeded
+-- before the site works.
 
 -- ── Gamedays ─────────────────────────────────────────────────────────────────
 
@@ -91,8 +76,8 @@ create table if not exists public.results_games (
   finished boolean not null default false,
   home_team_id bigint,
   away_team_id bigint,
-  -- The short names upstream puts on a result, kept so a game still renders for an opponent
-  -- that is not in results_teams.
+  -- The short names upstream puts on a result ("Nürn", "LLions"). Kept so a game still
+  -- renders for a club the site has no display name for.
   home_name text,
   away_name text,
   -- Null until played, never 0. Upstream reports {home: 0, away: 0} for an unplayed fixture,
@@ -259,17 +244,12 @@ comment on table public.results_sync_state is
 -- `results_sync_state` is the exception: it is operational, not content. It carries upstream
 -- error strings and would let anyone read our sync posture, so anon gets nothing.
 
-alter table public.results_teams enable row level security;
 alter table public.results_gamedays enable row level security;
 alter table public.results_games enable row level security;
 alter table public.results_game_events enable row level security;
 alter table public.results_standings enable row level security;
 alter table public.results_live_games enable row level security;
 alter table public.results_sync_state enable row level security;
-
-drop policy if exists "results_teams are world readable" on public.results_teams;
-create policy "results_teams are world readable"
-  on public.results_teams for select to anon, authenticated using (true);
 
 drop policy if exists "results_gamedays are world readable" on public.results_gamedays;
 create policy "results_gamedays are world readable"
@@ -302,7 +282,6 @@ create policy "results_live_games are world readable"
 -- though the policies above are correct. Same reasoning as
 -- 20260924100000_explicit_table_grants.sql.
 grant select on
-  public.results_teams,
   public.results_gamedays,
   public.results_games,
   public.results_game_events,
@@ -316,7 +295,6 @@ grant select on
 -- rather than an error. Revoking makes an attempted write fail loudly, and means a policy
 -- added carelessly later still cannot grant writes to a public role.
 revoke insert, update, delete, truncate, references, trigger on
-  public.results_teams,
   public.results_gamedays,
   public.results_games,
   public.results_game_events,
@@ -329,7 +307,6 @@ revoke all on public.results_sync_state from anon, authenticated;
 
 -- service_role bypasses RLS but still needs the table privileges.
 grant all on
-  public.results_teams,
   public.results_gamedays,
   public.results_games,
   public.results_game_events,
