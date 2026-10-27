@@ -24,6 +24,9 @@ export function DeltaBadge({
   improvement,
   percent,
   showUnit = true,
+  threshold = 0.005,
+  against = "the previous test",
+  compact = false,
   className,
 }: {
   metric: MetricType | string;
@@ -31,6 +34,15 @@ export function DeltaBadge({
   improvement: number | null;
   percent?: number | null;
   showUnit?: boolean;
+  /**
+   * Changes smaller than this read as unchanged. Defaults to rounding noise; pass the metric's
+   * `meaningfulChange` where a sub-threshold change must not look like a result.
+   */
+  threshold?: number;
+  /** What the change is measured against, for the tooltip. */
+  against?: string;
+  /** Arrow only, with the figure in the tooltip - for a cell that already holds a value. */
+  compact?: boolean;
   className?: string;
 }) {
   if (improvement === null || !Number.isFinite(improvement)) {
@@ -41,7 +53,7 @@ export function DeltaBadge({
     );
   }
 
-  const rounded = Math.abs(improvement) < 0.005 ? 0 : improvement;
+  const rounded = Math.abs(improvement) < threshold - 1e-9 ? 0 : improvement;
   const Icon = rounded > 0 ? ArrowUpRight : rounded < 0 ? ArrowDownRight : Minus;
   const magnitude = formatMetricValue(metric, Math.abs(rounded));
   const unit = showUnit ? metricUnit(metric) : "";
@@ -53,8 +65,8 @@ export function DeltaBadge({
       style={{ color: deltaColor(rounded) }}
       title={
         rounded === 0
-          ? "Unchanged since the previous test"
-          : `${magnitude}${unit ? ` ${unit}` : ""} ${word} than the previous test${
+          ? `About the same as ${against}`
+          : `${magnitude}${unit ? ` ${unit}` : ""} ${word} than ${against}${
               percent !== null && percent !== undefined && Number.isFinite(percent)
                 ? ` (${Math.abs(percent).toFixed(1)}%)`
                 : ""
@@ -62,8 +74,14 @@ export function DeltaBadge({
       }
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      {rounded === 0 ? (
-        <span>no change</span>
+      {compact ? (
+        <span className="sr-only">
+          {rounded === 0
+            ? `about the same as ${against}`
+            : `${magnitude} ${unit} ${word} than ${against}`}
+        </span>
+      ) : rounded === 0 ? (
+        <span>{Math.abs(improvement) < 0.005 ? "no change" : "≈ same"}</span>
       ) : (
         <span>
           {rounded > 0 ? "+" : "−"}

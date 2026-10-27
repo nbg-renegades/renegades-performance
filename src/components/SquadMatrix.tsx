@@ -12,15 +12,17 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import {
   METRIC_KEYS,
   formatMetricValue,
+  meaningfulChange,
   metricLabel,
   metricUnit,
   type MetricType,
 } from "@/lib/metrics";
-import { summarise, trend, type GroupStanding } from "@/lib/analytics";
+import { summarise, type GroupStanding } from "@/lib/analytics";
+import { focusSeason, seasonLabel, yearOverYear } from "@/lib/seasons";
 import { POSITION_LABELS } from "@/lib/positionUtils";
 import { PercentileLegend, PercentileMeter } from "@/components/viz/PercentileMeter";
-import { StatusChip, TrendIndicator } from "@/components/viz/TrendIndicator";
-import { PersonalBestBadge } from "@/components/viz/DeltaBadge";
+import { StatusChip } from "@/components/viz/StatusChip";
+import { DeltaBadge, PersonalBestBadge } from "@/components/viz/DeltaBadge";
 import type { SquadAnalytics } from "@/hooks/useSquadAnalytics";
 import { cn } from "@/lib/utils";
 
@@ -33,9 +35,9 @@ import { cn } from "@/lib/utils";
  * meant twenty-five round trips through a dropdown.
  *
  * Each cell carries four readings, which is as many as a cell can hold before it stops being
- * scannable: the current value, where it places in the squad, which way it has been moving,
- * and whether it is recent enough to believe. The value is the primary reading and stays in an
- * ordinary text colour; the placement is a meter whose length says the same thing its colour
+ * scannable: the current value, where it places in the squad, whether this year's best beat last
+ * year's, and whether it is recent enough to believe. The value is the primary reading and stays in
+ * an ordinary text colour; the placement is a meter whose length says the same thing its colour
  * does.
  *
  * Sorting by a metric column is the point of the thing - it turns the matrix into "who is
@@ -61,6 +63,12 @@ export function SquadMatrix({ analytics, standings, playerIds }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("player");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  /**
+   * One year for the whole matrix - the one the coach dashboard describes - so every arrow in
+   * a column compares the same two preseasons.
+   */
+  const season = useMemo(() => focusSeason(index, now)?.season ?? null, [index, now]);
+
   const rows = useMemo(() => {
     return rowIds.map((playerId) => {
       const cells = METRIC_KEYS.map((metric) => {
@@ -71,7 +79,7 @@ export function SquadMatrix({ analytics, standings, playerIds }: Props) {
           summary,
           percentile: standingRow?.percentile ?? null,
           reliable: activeStandings[metric]?.reliable ?? false,
-          trend: trend(index, playerId, metric, 6, now),
+          yearOverYear: season === null ? null : yearOverYear(index, playerId, metric, season),
         };
       });
       return {
@@ -82,7 +90,7 @@ export function SquadMatrix({ analytics, standings, playerIds }: Props) {
         byMetric: new Map(cells.map((c) => [c.metric, c])),
       };
     });
-  }, [rowIds, index, now, activeStandings, nameOf, memberOf]);
+  }, [rowIds, index, now, season, activeStandings, nameOf, memberOf]);
 
   const sorted = useMemo(() => {
     const factor = sortDirection === "asc" ? 1 : -1;
@@ -198,7 +206,16 @@ export function SquadMatrix({ analytics, standings, playerIds }: Props) {
                           reliable={cell.reliable}
                         />
                         <div className="flex items-center gap-2">
-                          <TrendIndicator trend={cell.trend} showPercent={false} />
+                          {cell.yearOverYear && season !== null && (
+                            <DeltaBadge
+                              metric={cell.metric}
+                              improvement={cell.yearOverYear.improvement}
+                              percent={cell.yearOverYear.percent}
+                              threshold={meaningfulChange(cell.metric)}
+                              against={`their ${seasonLabel(season - 1)} best`}
+                              compact
+                            />
+                          )}
                           {cell.summary.status === "stale" && (
                             <StatusChip
                               status="stale"

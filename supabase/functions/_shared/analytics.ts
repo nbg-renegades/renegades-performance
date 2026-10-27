@@ -8,9 +8,9 @@
  * a player, and if the two disagree the same athlete gets two different numbers depending on
  * who is looking at them.
  *
- * Only the group-relative half lives here. Personal bests, deltas and trends are computed from
- * a player's own rows, which row-level security already lets them read, so they stay in the
- * browser and have no second implementation to keep in step.
+ * Only the group-relative half lives here. Personal bests, deltas and season comparisons are
+ * computed from a player's own rows, which row-level security already lets them read, so they
+ * stay in the browser and have no second implementation to keep in step.
  */
 
 import { METRIC_KEYS, isLowerBetter, type MetricType, type PerformanceEntryRow } from './metrics.ts';

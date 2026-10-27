@@ -12,8 +12,8 @@ const TeamMatrix = () => {
         <CardDescription>
           Every player against every metric, ranked within {groupLabel.toLowerCase()}. Sort by a
           metric to see who is strongest and who is struggling on it. Each cell shows the most
-          recent value, where it places in the group, which way it has been moving, and whether
-          it is recent enough to trust.
+          recent value, where it places in the group, whether this year&apos;s best beat last
+          year&apos;s (hover the arrow for the figures), and whether it is recent enough to trust.
         </CardDescription>
       </CardHeader>
       <CardContent>

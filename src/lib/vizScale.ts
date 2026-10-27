@@ -50,7 +50,7 @@ export function statusPresentation(status: MetricStatus): StatusPresentation {
     case 'current':
       return { label: 'Up to date', color: 'var(--viz-good)' };
     case 'stale':
-      return { label: 'Stale', color: 'var(--viz-warning)' };
+      return { label: 'Not tested this year', color: 'var(--viz-warning)' };
     case 'missing':
       return { label: 'Never tested', color: 'var(--viz-critical)' };
   }

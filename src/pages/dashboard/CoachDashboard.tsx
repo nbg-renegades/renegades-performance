@@ -4,17 +4,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Award, CalendarDays, ClipboardList, TrendingDown, TrendingUp, Users } from "lucide-react";
-import { METRIC_KEYS, formatMetricValue, metricLabel, metricUnit } from "@/lib/metrics";
 import {
-  STALE_AFTER_DAYS,
-  coverageByMetric,
-  sessionReport,
-  trend,
-  type Trend,
-} from "@/lib/analytics";
+  Award,
+  CalendarDays,
+  ClipboardList,
+  HeartPulse,
+  Medal,
+  Sprout,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { formatMetricValue, meaningfulChange, metricLabel, metricUnit } from "@/lib/metrics";
+import { coverageByMetric, sessionReport, todayIso } from "@/lib/analytics";
+import {
+  changesFor,
+  focusSeason,
+  isRookie,
+  rankAthletes,
+  seasonDrop,
+  seasonGain,
+  seasonLabel,
+  seasonOf,
+  seasonRecords,
+  squadProgress,
+  yearOverYear,
+  type AthleteScore,
+  type MetricChange,
+} from "@/lib/seasons";
 import { useSquadAnalytics } from "@/hooks/useSquadAnalytics";
-import { TrendIndicator } from "@/components/viz/TrendIndicator";
+import { DeltaBadge } from "@/components/viz/DeltaBadge";
 import { errorMessage } from "@/lib/errors";
 
 /**
@@ -54,23 +72,29 @@ export function CoachDashboard({ name }: { name: string }) {
   );
 
   /**
-   * The athletes who moved most over the recent window, either way. Ranked by percent so a
-   * sprint's tenths and a jump's centimetres can sit in the same list.
+   * Who is moving, by the testing calendar rather than a sliding window: the squad is tested
+   * two or three times each preseason and not at all in between, so "the last six months" was
+   * empty most of the year. Out of preseason this is last year's recap. See src/lib/seasons.
    */
-  const movers = useMemo(() => {
-    const rows = playerIds.flatMap((playerId) =>
-      METRIC_KEYS.flatMap((metric) => {
-        const result = trend(index, playerId, metric, 6, now);
-        if (result.direction === "insufficient" || result.percentPer30Days === null) return [];
-        // The whole Trend travels, not a bare number: a percent per month is not a value in the
-        // metric's unit, and anything that formats it as one would print a sprint's "0.8" as
-        // seconds.
-        return [{ playerId, metric, trend: result, percent: result.percentPer30Days }];
-      }),
-    );
-    rows.sort((a, b) => b.percent - a.percent);
-    return { improving: rows.slice(0, 5), declining: rows.slice(-5).reverse() };
-  }, [playerIds, index, now]);
+  const season = useMemo(() => {
+    const focus = focusSeason(index, now);
+    if (!focus) return null;
+    const year = focus.season;
+    const rookies = playerIds.filter((id) => isRookie(index, id, year));
+    const returning = playerIds.filter((id) => !rookies.includes(id));
+    return {
+      ...focus,
+      // Every player is in exactly one "most improved" family: returning players are judged
+      // year over year, rookies on what this preseason did for them.
+      sinceLastYear: rankAthletes(changesFor(yearOverYear, index, returning, year)),
+      thisPreseason: rankAthletes(changesFor(seasonGain, index, returning, year)),
+      rookies: rankAthletes(changesFor(seasonGain, index, rookies, year)),
+      records: seasonRecords(index, playerIds, year).slice(0, 5),
+      // One row per player, worst first: the point is who to talk to, not which drill.
+      drops: rankAthletesByDrop(changesFor(seasonDrop, index, playerIds, year)).slice(0, 5),
+      progress: squadProgress(index, returning, year),
+    };
+  }, [index, playerIds, now]);
 
   const untestedTotal = coverage.reduce((sum, c) => sum + c.missing.length, 0);
   const staleTotal = coverage.reduce((sum, c) => sum + c.stale.length, 0);
@@ -119,7 +143,8 @@ export function CoachDashboard({ name }: { name: string }) {
             <Alert>
               <AlertDescription className="flex flex-wrap items-baseline gap-x-2">
                 <strong>{untestedTotal}</strong> player-and-metric combinations have never been
-                measured and <strong>{staleTotal}</strong> are older than {STALE_AFTER_DAYS} days.
+                measured and <strong>{staleTotal}</strong> have not been tested yet in{" "}
+                {seasonLabel(seasonOf(todayIso(now)))}.
                 <Link
                   to="/team/coverage"
                   className="rounded-sm font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -195,17 +220,58 @@ export function CoachDashboard({ name }: { name: string }) {
               )}
             </Card>
 
+            {season && (
+              <Card className="border-border/50 shadow-card">
+                <CardHeader>
+                  <CardTitle>Returning players vs {seasonLabel(season.season - 1)}</CardTitle>
+                  <CardDescription>
+                    Median change in season bests, counting only players tested in both
+                    years, so new arrivals and departures do not decide it.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="divide-y divide-border/50 text-sm">
+                    {season.progress.map((p) => (
+                      <li key={p.metric} className="flex items-center gap-2 py-1.5">
+                        <span className="min-w-0 flex-1 truncate">{metricLabel(p.metric)}</span>
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          n={p.n}
+                        </span>
+                        <DeltaBadge
+                          metric={p.metric}
+                          improvement={p.medianImprovement}
+                          threshold={meaningfulChange(p.metric)}
+                          against={seasonLabel(season.season - 1)}
+                          className="w-20 shrink-0 justify-end"
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {season && (
             <Card className="border-border/50 shadow-card">
               <CardHeader>
-                <CardTitle>Who is moving</CardTitle>
+                <CardTitle>
+                  {season.isCurrent ? "Who is moving" : "Recap"} · Preseason{" "}
+                  {seasonLabel(season.season)}
+                </CardTitle>
                 <CardDescription>
-                  Fitted trend over the last 6 months, as percent per month, so drills in
-                  different units can be compared. Needs at least three tests to appear.
+                  {season.isCurrent
+                    ? "So far this preseason."
+                    : `Nothing tested in ${seasonLabel(seasonOf(todayIso(now)))} yet, so this is ` +
+                      "last year until the first session."}{" "}
+                  Overall figures average the percent change per quality (speed, agility,
+                  power, endurance); changes inside a drill&apos;s measurement noise count as
+                  zero.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <MoverList
-                  title="Improving"
+              <CardContent className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                <ScoreList
+                  title={`Most improved since ${seasonLabel(season.season - 1)}`}
                   icon={
                     <TrendingUp
                       className="h-4 w-4"
@@ -213,26 +279,98 @@ export function CoachDashboard({ name }: { name: string }) {
                       aria-hidden="true"
                     />
                   }
-                  rows={movers.improving.filter((m) => m.percent > 0)}
+                  scores={season.sinceLastYear}
                   nameOf={nameOf}
-                  emptyText="Nobody has three tests on the same drill yet."
+                  emptyText="Needs returning players tested in both years on at least two qualities."
                 />
-                <MoverList
-                  title="Sliding"
+                <ScoreList
+                  title="Most improved this preseason"
                   icon={
-                    <TrendingDown
+                    <TrendingUp
                       className="h-4 w-4"
-                      style={{ color: "var(--viz-serious)" }}
+                      style={{ color: "var(--viz-good)" }}
                       aria-hidden="true"
                     />
                   }
-                  rows={movers.declining.filter((m) => m.percent < 0)}
+                  scores={season.thisPreseason}
                   nameOf={nameOf}
-                  emptyText="Nobody is trending down."
+                  emptyText="Needs a second test this preseason."
                 />
+                <ScoreList
+                  title="Most improved rookie"
+                  icon={
+                    <Sprout
+                      className="h-4 w-4"
+                      style={{ color: "var(--viz-good)" }}
+                      aria-hidden="true"
+                    />
+                  }
+                  scores={season.rookies}
+                  nameOf={nameOf}
+                  emptyText="No rookie has a second test this preseason yet."
+                />
+                <AwardList
+                  title="Most personal bests"
+                  icon={
+                    <Medal
+                      className="h-4 w-4"
+                      style={{ color: "var(--viz-good)" }}
+                      aria-hidden="true"
+                    />
+                  }
+                  emptyText="No records beaten yet. A first-ever attempt does not count."
+                  rows={season.records.map((r) => ({
+                    playerId: r.playerId,
+                    detail: r.records.map((x) => metricLabel(x.metric)).join(", "),
+                    value: (
+                      <span
+                        className="text-xs font-semibold tabular-nums"
+                        style={{ color: "var(--viz-good)" }}
+                      >
+                        {r.records.length} PB{r.records.length === 1 ? "" : "s"}
+                      </span>
+                    ),
+                  }))}
+                  nameOf={nameOf}
+                />
+                {season.isCurrent && (
+                  <AwardList
+                    title="Check in with"
+                    icon={
+                      <HeartPulse
+                        className="h-4 w-4"
+                        style={{ color: "var(--viz-serious)" }}
+                        aria-hidden="true"
+                      />
+                    }
+                    emptyText="Nobody went backwards past the noise at their latest test."
+                    rows={season.drops.map(({ playerId, changes }) => ({
+                      playerId,
+                      detail: changes.map((c) => metricLabel(c.metric)).join(", "),
+                      title: changes.map(describeChange).join("\n"),
+                      value:
+                        changes.length === 1 ? (
+                          <DeltaBadge
+                            metric={changes[0].metric}
+                            improvement={changes[0].improvement}
+                            percent={changes[0].percent}
+                            against="the previous test"
+                          />
+                        ) : (
+                          <span
+                            className="text-xs font-medium"
+                            style={{ color: "var(--viz-serious)" }}
+                          >
+                            {changes.length} drills
+                          </span>
+                        ),
+                    }))}
+                    nameOf={nameOf}
+                  />
+                )}
               </CardContent>
             </Card>
-          </div>
+          )}
         </>
       )}
     </div>
@@ -248,7 +386,71 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function MoverList({
+function describeChange(c: MetricChange): string {
+  return (
+    `${metricLabel(c.metric)}: ${formatMetricValue(c.metric, c.from.value)} → ` +
+    `${formatMetricValue(c.metric, c.to.value)} ${metricUnit(c.metric)}`
+  );
+}
+
+function rankAthletesByDrop(drops: MetricChange[]) {
+  const byPlayer = new Map<string, MetricChange[]>();
+  for (const drop of drops) {
+    byPlayer.set(drop.playerId, [...(byPlayer.get(drop.playerId) ?? []), drop]);
+  }
+  return [...byPlayer]
+    .map(([playerId, changes]) => ({
+      playerId,
+      changes: changes.sort((a, b) => a.percent - b.percent),
+    }))
+    .sort((a, b) => a.changes[0].percent - b.changes[0].percent);
+}
+
+/**
+ * A ranked list of athletes who improved. Takes the whole ranking, not just the improvers,
+ * so that "nobody compared yet" and "nobody beat the noise" can say different things.
+ */
+function ScoreList({
+  scores,
+  emptyText,
+  ...rest
+}: {
+  title: string;
+  icon: React.ReactNode;
+  scores: AthleteScore[];
+  nameOf: (id: string) => string;
+  emptyText: string;
+}) {
+  const improved = scores.filter((score) => score.overall > 0).slice(0, 5);
+  return (
+    <AwardList
+      {...rest}
+      emptyText={
+        scores.length === 0
+          ? emptyText
+          : `${scores.length} compared; nobody has improved past the measurement noise yet.`
+      }
+      rows={improved.map((score) => {
+        const improved = score.changes.filter((c) => c.verdict === "better");
+        return {
+          playerId: score.playerId,
+          detail: improved.map((c) => metricLabel(c.metric)).join(", "),
+          title: score.changes.map(describeChange).join("\n"),
+          value: (
+            <span
+              className="text-xs font-semibold tabular-nums"
+              style={{ color: "var(--viz-good)" }}
+            >
+              +{score.overall.toFixed(1)}%
+            </span>
+          ),
+        };
+      })}
+    />
+  );
+}
+
+function AwardList({
   title,
   icon,
   rows,
@@ -257,17 +459,12 @@ function MoverList({
 }: {
   title: string;
   icon: React.ReactNode;
-  rows: Array<{
-    playerId: string;
-    metric: (typeof METRIC_KEYS)[number];
-    trend: Trend;
-    percent: number;
-  }>;
+  rows: Array<{ playerId: string; detail: string; title?: string; value: React.ReactNode }>;
   nameOf: (id: string) => string;
   emptyText: string;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
         {icon}
         {title}
@@ -275,22 +472,30 @@ function MoverList({
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">{emptyText}</p>
       ) : (
-        <ul className="space-y-1 text-sm">
+        <ol className="space-y-2 text-sm">
           {rows.map((row) => (
-            <li key={`${row.playerId}-${row.metric}`} className="flex items-center gap-2">
+            <li key={row.playerId} title={row.title}>
+              {/* The whole row is the link: on a phone every link is a 44px tap target, and a
+                  name-only link would push its detail line down against the next row. */}
               <Link
                 to={`/players/${row.playerId}`}
-                className="min-w-0 flex-1 truncate rounded-sm underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {nameOf(row.playerId)}
+                <span className="flex items-baseline gap-2">
+                  <span className="min-w-0 flex-1 truncate underline-offset-4 group-hover:underline">
+                    {nameOf(row.playerId)}
+                  </span>
+                  <span className="shrink-0">{row.value}</span>
+                </span>
+                {row.detail && (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {row.detail}
+                  </span>
+                )}
               </Link>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {metricLabel(row.metric)}
-              </span>
-              <TrendIndicator trend={row.trend} className="shrink-0" />
             </li>
           ))}
-        </ul>
+        </ol>
       )}
     </div>
   );

@@ -5,11 +5,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Target, User } from "lucide-react";
 import { METRIC_KEYS, formatMetricValue, metricLabel, metricUnit } from "@/lib/metrics";
-import { STALE_AFTER_DAYS } from "@/lib/analytics";
+import { todayIso } from "@/lib/analytics";
+import { seasonLabel, seasonOf } from "@/lib/clubYear";
 import { usePlayerAnalytics } from "@/hooks/usePlayerAnalytics";
 import { DeltaBadge, PersonalBestBadge } from "@/components/viz/DeltaBadge";
 import { DomainScoresRow } from "@/components/viz/DomainScores";
 import { PercentileMeter } from "@/components/viz/PercentileMeter";
+import { SeasonDeltas } from "@/components/viz/SeasonDeltas";
 import { errorMessage } from "@/lib/errors";
 
 /**
@@ -84,16 +86,17 @@ export function PlayerDashboard({ name, userId }: { name: string; userId: string
           {needsAttention.length > 0 && (
             <Alert>
               <AlertDescription>
-                <strong>Worth re-testing:</strong>{" "}
+                <strong>Not tested yet in {seasonLabel(seasonOf(todayIso(analytics.now)))}:</strong>
+                {" "}
                 {needsAttention
                   .map((metric) => {
-                    const summary = analytics.summaries[metric];
-                    return summary.status === "missing"
+                    const { latestDate } = analytics.summaries[metric];
+                    return latestDate === null
                       ? `${metricLabel(metric)} (never measured)`
-                      : `${metricLabel(metric)} (${summary.daysSinceLast} days old)`;
+                      : `${metricLabel(metric)} (last in ${seasonLabel(seasonOf(latestDate))})`;
                   })
                   .join(", ")}
-                . Anything older than {STALE_AFTER_DAYS} days counts as stale.
+                . The club year starts on 1 October.
               </AlertDescription>
             </Alert>
           )}
@@ -146,6 +149,13 @@ export function PlayerDashboard({ name, userId }: { name: string; userId: string
                           {summary.isPersonalBest && summary.attempts > 1 && <PersonalBestBadge />}
                         </span>
                       </div>
+                      {analytics.season !== null && (
+                        <SeasonDeltas
+                          metric={metric}
+                          season={analytics.season}
+                          {...analytics.seasonChanges[metric]}
+                        />
+                      )}
                       <PercentileMeter
                         percentile={standing.percentile}
                         reliable={standing.reliable}

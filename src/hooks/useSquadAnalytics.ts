@@ -30,7 +30,7 @@ import type { MetricType } from "@/lib/metrics";
  * `now` is frozen for the lifetime of the hook. Calling `new Date()` inside the memos would
  * hand them a new dependency on every render and recompute the whole squad each time; it
  * would also let a view silently disagree with itself about whether a measurement has just
- * crossed the 90-day staleness line.
+ * crossed into a new club year.
  */
 export interface SquadAnalytics {
   index: EntryIndex;

@@ -7,13 +7,12 @@ import {
   domainScores,
   nextTargetFor,
   summarise,
-  trend,
   type DomainScores,
   type EntryIndex,
   type GroupSpec,
   type PlayerMetricSummary,
-  type Trend,
 } from "@/lib/analytics";
+import { latestSeasonFor, seasonGain, yearOverYear, type MetricChange } from "@/lib/seasons";
 import { METRIC_KEYS, type MetricType } from "@/lib/metrics";
 
 /**
@@ -45,7 +44,12 @@ export interface PlayerStandingRow {
 export interface PlayerAnalytics {
   index: EntryIndex;
   summaries: Record<MetricType, PlayerMetricSummary>;
-  trends: Record<MetricType, Trend>;
+  /** The player's latest tested club year, which `seasonChanges` describe. */
+  season: number | null;
+  seasonChanges: Record<
+    MetricType,
+    { seasonGain: MetricChange | null; yearOverYear: MetricChange | null }
+  >;
   standings: Record<MetricType, PlayerStandingRow>;
   percentiles: Map<MetricType, number>;
   scores: DomainScores;
@@ -102,8 +106,8 @@ export function usePlayerAnalytics(
   /**
    * The same hook serves both readers, because the entries query is the same query either way -
    * `get_best_daily_entries` applies row-level security itself, so a coach gets the squad and a
-   * player gets their own rows from one cached key. The player's own summaries, records and
-   * trends therefore work identically on both paths. Only the group-relative figures differ,
+   * player gets their own rows from one cached key. The player's own summaries, records and season
+   * comparisons therefore work identically on both paths. Only the group-relative figures differ,
    * and that is what the standing function below is for.
    */
   const squad = useSquadAnalytics();
@@ -123,12 +127,22 @@ export function usePlayerAnalytics(
     [index, playerId, now],
   );
 
-  const trends = useMemo(
+  const season = useMemo(() => latestSeasonFor(index, playerId, now), [index, playerId, now]);
+
+  const seasonChanges = useMemo(
     () =>
       Object.fromEntries(
-        METRIC_KEYS.map((metric) => [metric, trend(index, playerId, metric, 6, now)]),
-      ) as Record<MetricType, Trend>,
-    [index, playerId, now],
+        METRIC_KEYS.map((metric) => [
+          metric,
+          season === null
+            ? { seasonGain: null, yearOverYear: null }
+            : {
+                seasonGain: seasonGain(index, playerId, metric, season),
+                yearOverYear: yearOverYear(index, playerId, metric, season),
+              },
+        ]),
+      ) as PlayerAnalytics["seasonChanges"],
+    [index, playerId, season],
   );
 
   const groupStandings = useMemo(
@@ -190,7 +204,8 @@ export function usePlayerAnalytics(
   return {
     index,
     summaries,
-    trends,
+    season,
+    seasonChanges,
     standings,
     percentiles,
     scores,

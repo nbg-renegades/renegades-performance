@@ -30,7 +30,8 @@ import { DeltaBadge, PersonalBestBadge } from "@/components/viz/DeltaBadge";
 import { PercentileLegend, PercentileMeter } from "@/components/viz/PercentileMeter";
 import { PercentileRadar, type RadarSeries } from "@/components/viz/PercentileRadar";
 import { DomainScoresRow } from "@/components/viz/DomainScores";
-import { StatusChip, TrendIndicator } from "@/components/viz/TrendIndicator";
+import { StatusChip } from "@/components/viz/StatusChip";
+import { SeasonDeltas } from "@/components/viz/SeasonDeltas";
 import { PlayerPerformanceChart } from "@/components/PlayerPerformanceChart";
 import { errorMessage } from "@/lib/errors";
 
@@ -228,8 +229,8 @@ const PlayerPage = () => {
             <CardHeader>
               <CardTitle>Metric by metric</CardTitle>
               <CardDescription>
-                Current value, how it changed since the previous test, where it ranks in{" "}
-                {groupLabel}, and what the next target is.
+                Current value, how it changed since the previous test and across the
+                preseason, where it ranks in {groupLabel}, and what the next target is.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -240,7 +241,8 @@ const PlayerPage = () => {
                     metric={metric}
                     summary={analytics.summaries[metric]}
                     standing={analytics.standings[metric]}
-                    trend={analytics.trends[metric]}
+                    season={analytics.season}
+                    seasonChanges={analytics.seasonChanges[metric]}
                     showsNames={analytics.showsNames}
                   />
                 ))}
@@ -286,13 +288,15 @@ function MetricCard({
   metric,
   summary,
   standing,
-  trend,
+  season,
+  seasonChanges,
   showsNames,
 }: {
   metric: MetricType;
   summary: ReturnType<typeof usePlayerAnalytics>["summaries"][MetricType];
   standing: PlayerStandingRow;
-  trend: ReturnType<typeof usePlayerAnalytics>["trends"][MetricType];
+  season: number | null;
+  seasonChanges: ReturnType<typeof usePlayerAnalytics>["seasonChanges"][MetricType];
   showsNames: boolean;
 }) {
   if (summary.latest === null) {
@@ -324,9 +328,10 @@ function MetricCard({
             improvement={summary.improvementVsPrevious}
             percent={summary.improvementVsPreviousPercent}
           />
-          <TrendIndicator trend={trend} />
         </div>
       </div>
+
+      {season !== null && <SeasonDeltas metric={metric} season={season} {...seasonChanges} />}
 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">

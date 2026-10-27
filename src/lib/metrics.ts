@@ -37,6 +37,13 @@ export interface MetricDefinition {
   /** Input granularity, and the number of decimals a value is rendered with. */
   step: number;
   precision: number;
+  /**
+   * The smallest change worth calling a change, in the metric's unit. Anything inside it is
+   * measurement noise and reads as "about the same" - without it every "most improved" list
+   * ranks the timing error. Times assume electronic gates; hand timing would need roughly
+   * double. These are starting values for the coaches to tune, not published norms.
+   */
+  meaningfulChange: number;
 }
 
 export const METRICS: Record<MetricType, MetricDefinition> = {
@@ -47,6 +54,7 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'higher',
     step: 1,
     precision: 0,
+    meaningfulChange: 2,
   },
   jump_gather: {
     key: 'jump_gather',
@@ -55,6 +63,7 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'higher',
     step: 1,
     precision: 0,
+    meaningfulChange: 2,
   },
   '30yd_dash': {
     key: '30yd_dash',
@@ -63,6 +72,7 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'lower',
     step: 0.01,
     precision: 2,
+    meaningfulChange: 0.05,
   },
   '3_cone_drill': {
     key: '3_cone_drill',
@@ -71,6 +81,7 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'lower',
     step: 0.01,
     precision: 2,
+    meaningfulChange: 0.1,
   },
   shuttle_5_10_5: {
     key: 'shuttle_5_10_5',
@@ -79,6 +90,7 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'lower',
     step: 0.01,
     precision: 2,
+    meaningfulChange: 0.08,
   },
   pushups_1min: {
     key: 'pushups_1min',
@@ -87,6 +99,7 @@ export const METRICS: Record<MetricType, MetricDefinition> = {
     direction: 'higher',
     step: 1,
     precision: 0,
+    meaningfulChange: 2,
   },
 };
 
@@ -125,6 +138,10 @@ export function formatMetricValue(key: MetricType | string, value: number): stri
 export function formatMetricValueWithUnit(key: MetricType | string, value: number): string {
   const unit = metricUnit(key);
   return unit ? `${formatMetricValue(key, value)} ${unit}` : formatMetricValue(key, value);
+}
+
+export function meaningfulChange(key: MetricType | string): number {
+  return isMetricType(key) ? METRICS[key].meaningfulChange : 0;
 }
 
 /** The better of two values for this metric. */

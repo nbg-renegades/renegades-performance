@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import { METRIC_KEYS, metricLabel } from "@/lib/metrics";
-import { STALE_AFTER_DAYS, coverageByMetric, summarise } from "@/lib/analytics";
-import { StatusChip } from "@/components/viz/TrendIndicator";
+import { coverageByMetric, summarise, todayIso } from "@/lib/analytics";
+import { seasonLabel, seasonOf } from "@/lib/clubYear";
+import { StatusChip } from "@/components/viz/StatusChip";
 import { useTeamContext } from "./context";
 
 /**
@@ -80,8 +81,9 @@ const TeamCoverage = () => {
           <CardTitle>How complete the picture is</CardTitle>
           <CardDescription>
             The share of {memberIds.length * METRIC_KEYS.length} player-and-metric combinations
-            in {groupLabel.toLowerCase()} with a measurement from the last {STALE_AFTER_DAYS}{" "}
-            days. Everything else on this page is either missing or older than that.
+            in {groupLabel.toLowerCase()} tested in {seasonLabel(seasonOf(todayIso(now)))}, the
+            club year that started on 1 October. Everything else on this page was last tested
+            in an earlier year or never.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -98,7 +100,7 @@ const TeamCoverage = () => {
               status="current"
             />
             <Tally
-              label={`Older than ${STALE_AFTER_DAYS} days`}
+              label={`Not yet in ${seasonLabel(seasonOf(todayIso(now)))}`}
               count={byPlayer.reduce((s, r) => s + r.stale, 0)}
               total={totalCells}
               status="stale"
@@ -117,8 +119,8 @@ const TeamCoverage = () => {
         <CardHeader>
           <CardTitle>What to test next</CardTitle>
           <CardDescription>
-            Per metric, who is missing it entirely and whose number has gone stale. This is the
-            list a testing session should be built from.
+            Per metric, who is missing it entirely and who has not been tested on it this year.
+            This is the list a testing session should be built from.
           </CardDescription>
         </CardHeader>
         <CardContent>

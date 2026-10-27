@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
   MIN_GROUP_FOR_PERCENTILE,
-  STALE_AFTER_DAYS,
   agilityToSpeedRatio,
   buildIndex,
   coverageByMetric,
@@ -17,7 +16,6 @@ import {
   sessionReport,
   standingsFor,
   summarise,
-  trend,
   type AnalyticsEntry,
 } from "../src/lib/analytics";
 import type { FootballPosition } from "../src/lib/positionUtils";
@@ -28,7 +26,7 @@ import type { FootballPosition } from "../src/lib/positionUtils";
  *
  * `NOW` is fixed and passed explicitly to every call that cares about the date. The
  * functions all take a `now` for exactly this reason: a suite that read the real clock would
- * start failing whenever a fixture crossed the 90-day staleness line.
+ * start failing whenever a fixture crossed into a new club year.
  */
 const NOW = new Date("2026-09-25T12:00:00Z");
 
@@ -141,19 +139,18 @@ test.describe("summarise", () => {
     expect(summary.improvementVsPreviousPercent).toBeCloseTo((0.15 / 4.3) * 100);
   });
 
-  test("goes stale strictly after the threshold", () => {
-    const justInside = new Date(NOW.getTime() - STALE_AFTER_DAYS * 86_400_000);
-    const justOutside = new Date(NOW.getTime() - (STALE_AFTER_DAYS + 1) * 86_400_000);
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
+  test("goes stale when the club year turns over, however recent", () => {
+    // NOW is 2026-09-25, so the current club year began on 2025-10-01.
+    const status = (date: string, now = NOW) =>
+      summarise(buildIndex([row("a", "pushups_1min", 40, date)]), "a", "pushups_1min", now)
+        .status;
 
-    expect(
-      summarise(buildIndex([row("a", "pushups_1min", 40, iso(justInside))]), "a", "pushups_1min", NOW)
-        .status,
-    ).toBe("current");
-    expect(
-      summarise(buildIndex([row("a", "pushups_1min", 40, iso(justOutside))]), "a", "pushups_1min", NOW)
-        .status,
-    ).toBe("stale");
+    expect(status("2025-10-01")).toBe("current");
+    expect(status("2025-09-30")).toBe("stale");
+    // Eleven months old and still current; five days old and already stale.
+    expect(status("2025-11-10")).toBe("current");
+    expect(status("2026-09-25", new Date("2026-09-25T12:00:00Z"))).toBe("current");
+    expect(status("2026-09-28", new Date("2026-10-03T12:00:00Z"))).toBe("stale");
   });
 });
 
@@ -312,55 +309,6 @@ test.describe("groupMembers", () => {
   });
 });
 
-test.describe("trend", () => {
-  const monthsAgo = (n: number) => {
-    const d = new Date(NOW);
-    d.setMonth(d.getMonth() - n);
-    return d.toISOString().slice(0, 10);
-  };
-
-  test("fewer than three points in the window is not a trend", () => {
-    const index = buildIndex([
-      row("a", "vertical_jump", 55, monthsAgo(4)),
-      row("a", "vertical_jump", 60, monthsAgo(1)),
-      row("a", "vertical_jump", 50, monthsAgo(20)),
-    ]);
-    const result = trend(index, "a", "vertical_jump", 6, NOW);
-    expect(result.direction).toBe("insufficient");
-    expect(result.points).toBe(2);
-    expect(result.percentPer30Days).toBeNull();
-  });
-
-  test("a rising jump improves and a rising time declines", () => {
-    const rising = (metric: string, values: number[]) =>
-      buildIndex(values.map((v, i) => row("a", metric, v, monthsAgo(5 - i))));
-
-    const jump = trend(rising("vertical_jump", [55, 58, 61, 64]), "a", "vertical_jump", 6, NOW);
-    expect(jump.direction).toBe("improving");
-    expect(jump.percentPer30Days).toBeGreaterThan(0);
-
-    const dash = trend(rising("30yd_dash", [4.1, 4.2, 4.3, 4.4]), "a", "30yd_dash", 6, NOW);
-    expect(dash.direction).toBe("declining");
-    expect(dash.percentPer30Days).toBeLessThan(0);
-  });
-
-  test("a falling time improves", () => {
-    const index = buildIndex(
-      [4.4, 4.3, 4.2, 4.1].map((v, i) => row("a", "30yd_dash", v, monthsAgo(5 - i))),
-    );
-    expect(trend(index, "a", "30yd_dash", 6, NOW).direction).toBe("improving");
-  });
-
-  test("an unchanged series is flat, not improving", () => {
-    const index = buildIndex(
-      [60, 60, 60, 60].map((v, i) => row("a", "vertical_jump", v, monthsAgo(5 - i))),
-    );
-    const result = trend(index, "a", "vertical_jump", 6, NOW);
-    expect(result.direction).toBe("flat");
-    expect(result.percentPer30Days).toBeCloseTo(0);
-  });
-});
-
 test.describe("coverageByMetric", () => {
   test("finds players with no rows at all, which the entries alone cannot show", () => {
     const index = buildIndex([row("tested", "vertical_jump", 60, "2026-09-01")]);
@@ -377,9 +325,8 @@ test.describe("coverageByMetric", () => {
   });
 
   test("separates stale from missing", () => {
-    const old = new Date(NOW.getTime() - 200 * 86_400_000).toISOString().slice(0, 10);
     const coverage = coverageByMetric(
-      buildIndex([row("a", "vertical_jump", 60, old)]),
+      buildIndex([row("a", "vertical_jump", 60, "2025-01-15")]),
       ["a"],
       NOW,
     );
