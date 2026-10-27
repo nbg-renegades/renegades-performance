@@ -163,7 +163,8 @@ export async function mockSupabase(page: Page, captured: Captured, role: "admin"
         username: `${p.first_name.toLowerCase()}.${p.last_name.toLowerCase()}`,
         first_name: p.first_name,
         last_name: p.last_name,
-        terms_accepted_at: "2026-01-04T09:00:00Z",
+        // After TERMS_UPDATED_AT, so the terms dialog stays shut for every other test.
+        terms_accepted_at: "2026-10-28T09:00:00Z",
       }));
       return route.fulfill(json(wantsOne ? rows[0] : rows));
     }

@@ -138,10 +138,32 @@ test.describe("as a player", () => {
     await expect(signedInAsPlayer.getByRole("heading", { name: /Welcome back/ })).toBeVisible();
   });
 
+  test("is bounced off /users, which is admin-only", async ({ signedInAsPlayer }) => {
+    await signedInAsPlayer.goto("/users");
+    await expect(signedInAsPlayer).toHaveURL(/\/$/);
+    await expect(signedInAsPlayer.getByRole("heading", { name: /Welcome back/ })).toBeVisible();
+  });
+
   test("cannot record a session for the squad", async ({ signedInAsPlayer }) => {
     await signedInAsPlayer.goto("/log");
     await expect(signedInAsPlayer.getByRole("heading", { name: /^Log$/ })).toBeVisible();
     await expect(signedInAsPlayer.getByRole("button", { name: "Record session" })).toHaveCount(0);
+  });
+});
+
+test.describe("terms", () => {
+  test("are asked again when they changed after someone accepted them", async ({ signedIn }) => {
+    // Registered after the fixture's own routes, so it wins for the profile lookup.
+    await signedIn.route("**/rest/v1/profiles*", (route) =>
+      route.fulfill({
+        status: 200,
+        headers: { "content-type": "application/json", "access-control-allow-origin": "*" },
+        body: JSON.stringify({ terms_accepted_at: "2026-01-04T09:00:00Z" }),
+      }),
+    );
+    await signedIn.goto("/");
+    await expect(signedIn.getByRole("alertdialog")).toBeVisible();
+    await expect(signedIn.getByRole("heading", { name: "When You Leave the Club" })).toBeVisible();
   });
 });
 

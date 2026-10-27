@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { queryKeys, fetchUsers, type UserProfile } from "@/lib/queries";
+import { useViewer } from "@/hooks/useViewer";
 import type { Database } from "@/integrations/supabase/types";
 
 type AppRole = Database["public"]["Enums"]["app_role"];
@@ -42,6 +43,7 @@ const Users = () => {
   const [primaryPosition, setPrimaryPosition] = useState<FootballPosition>('unassigned');
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const viewer = useViewer();
   const [isPasswordResetDialogOpen, setIsPasswordResetDialogOpen] = useState(false);
   const [userToResetPassword, setUserToResetPassword] = useState<UserProfile | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -55,6 +57,23 @@ const Users = () => {
 
   // Anything that writes a member, a role or a position makes this list stale.
   const refreshUsers = () => queryClient.invalidateQueries({ queryKey: queryKeys.users });
+
+  /**
+   * How many results the member being removed has, which decides what removing them means:
+   * with results they are anonymised by default, without any they are simply deleted.
+   */
+  const { data: resultCount, isPending: resultCountPending } = useQuery({
+    queryKey: ["result-count", userToDelete?.id],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("performance_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("player_id", userToDelete!.id);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    enabled: !!userToDelete,
+  });
 
   const handleCreateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -157,7 +176,7 @@ const Users = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleDeleteUser = async () => {
+  const handleDeleteUser = async (keepResults: boolean) => {
     if (!userToDelete) return;
     
     setIsLoading(true);
@@ -174,6 +193,7 @@ const Users = () => {
         },
         body: JSON.stringify({
           userId: userToDelete.id,
+          keepResults,
         }),
       });
 
@@ -184,13 +204,20 @@ const Users = () => {
       }
 
       toast({
-        title: "Success",
-        description: "User deleted successfully",
+        title: result.outcome === "anonymised" ? "Member removed" : "Member deleted",
+        description:
+          result.outcome === "anonymised"
+            ? `${fullName(userToDelete)} was deleted. ${result.anonymisedResults} results stay in the squad history anonymously.`
+            : `${fullName(userToDelete)} and everything about them was deleted.`,
       });
 
       setIsDeleteDialogOpen(false);
       setUserToDelete(null);
       refreshUsers();
+      // Their results either changed owner or disappeared, and every squad view reads them.
+      queryClient.invalidateQueries({ queryKey: queryKeys.entries });
+      queryClient.invalidateQueries({ queryKey: queryKeys.formerPlayers });
+      queryClient.invalidateQueries({ queryKey: queryKeys.squad });
     } catch (error) {
       toast({
         title: "Error",
@@ -573,8 +600,13 @@ const Users = () => {
                           setUserToDelete(user);
                           setIsDeleteDialogOpen(true);
                         }}
-                        aria-label={`Delete ${fullName(user)}`}
-                        title="Delete member"
+                        disabled={user.id === viewer.userId}
+                        aria-label={`Remove ${fullName(user)}`}
+                        title={
+                          user.id === viewer.userId
+                            ? "You cannot remove your own account"
+                            : "Remove member"
+                        }
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -655,25 +687,60 @@ const Users = () => {
         </form>
       </ResponsiveDialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open) setUserToDelete(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {userToDelete?.first_name} {userToDelete?.last_name}? 
-              This will permanently delete their profile, roles, positions, and all performance entries. 
-              This action cannot be undone.
+            <AlertDialogTitle>Remove {userToDelete && fullName(userToDelete)}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                {resultCountPending ? (
+                  <p>Checking their results…</p>
+                ) : resultCount ? (
+                  <>
+                    <p>
+                      Their name, login, roles and position are deleted. Their{" "}
+                      <strong>{resultCount} results</strong> stay in the squad history as an
+                      anonymous former player and can no longer be linked to them.
+                    </p>
+                    <p>
+                      Only if they asked for it: delete everything removes the results too.
+                    </p>
+                  </>
+                ) : (
+                  <p>
+                    They have no results, so their account, name, roles and position are
+                    deleted and nothing is kept.
+                  </p>
+                )}
+                <p>This cannot be undone.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-2">
             <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteUser}
-              disabled={isLoading}
+            {!!resultCount && (
+              <Button
+                variant="outline"
+                onClick={() => handleDeleteUser(false)}
+                disabled={isLoading}
+                className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                Delete everything
+              </Button>
+            )}
+            <Button
+              onClick={() => handleDeleteUser(true)}
+              disabled={isLoading || resultCountPending}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isLoading ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
+              {isLoading ? "Removing…" : resultCount ? "Remove, keep results" : "Delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

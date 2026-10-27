@@ -100,7 +100,7 @@ type GroupBy = "none" | "player" | "date";
 const PAGE_SIZE = 25;
 
 const playerName = (entry: PerformanceEntryRow) =>
-  entry.player ? `${entry.player.first_name} ${entry.player.last_name}` : "Unknown player";
+  entry.player ? `${entry.player.first_name} ${entry.player.last_name}`.trim() : "Unknown player";
 
 const positionLabel = (entry: PerformanceEntryRow) =>
   entry.player?.position && entry.player.position !== "unassigned"

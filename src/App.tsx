@@ -84,7 +84,12 @@ const App = () => (
               <Route path="/me" element={<MyPageRedirect />} />
 
               <Route path="/log" element={<Log />} />
-              <Route path="/users" element={<Users />} />
+              {/* Members are created, edited and removed here - admins only, not coaches. The
+                  functions behind it check the role themselves; this keeps a coach from
+                  landing on a page whose every action would be refused. */}
+              <Route element={<RequireRole allow={["admin"]} />}>
+                <Route path="/users" element={<Users />} />
+              </Route>
 
               {/* The old addresses. People have these bookmarked and the sidebar link lived at
                   /performance for the app's whole life, so they redirect rather than 404:

@@ -2,9 +2,17 @@ import { createClient } from 'npm:@supabase/supabase-js@2.112.1';
 import { z } from 'npm:zod@4.4.3';
 import { getCorsHeaders } from '../_shared/cors.ts';
 
-// Validation schema
+/**
+ * Removes a member. Admins only - not coaches.
+ *
+ * `keepResults` (the default) is what the terms promise a player who leaves: the account,
+ * name, roles and position are deleted, and any results move to an anonymous former-player
+ * id so the squad's history keeps them. Someone with no results is simply deleted. Passing
+ * `keepResults: false` deletes the results too, for a player who asks for that.
+ */
 const deleteUserSchema = z.object({
-  userId: z.string().uuid('Invalid user ID format')
+  userId: z.string().uuid('Invalid user ID format'),
+  keepResults: z.boolean().default(true),
 });
 
 type DeleteUserRequest = z.infer<typeof deleteUserSchema>;
@@ -83,56 +91,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { userId } = validationResult.data;
+    const { userId, keepResults } = validationResult.data;
 
-    // Perform atomic deletion using service role (bypasses RLS)
-    // Delete in order: performance_entries, player_positions, user_roles, profiles, auth.users
-    
-    const { error: perfError } = await supabaseAdmin
-      .from('performance_entries')
-      .delete()
-      .eq('player_id', userId);
-
-    if (perfError) {
-      throw new Error(`Failed to delete performance entries: ${perfError.message}`);
+    // An admin removing themselves could leave the club with no admin, and nobody to undo it.
+    if (userId === user.id) {
+      return new Response(
+        JSON.stringify({ error: 'You cannot remove your own account' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const { error: posError } = await supabaseAdmin
-      .from('player_positions')
-      .delete()
-      .eq('player_id', userId);
-
-    if (posError) {
-      throw new Error(`Failed to delete player positions: ${posError.message}`);
+    // Moving the results first is what keeps them: deleting the account deletes whatever
+    // results still point at it (a trigger stands in for the old cascade). The move is one
+    // transaction inside the function, so it either happens completely or not at all.
+    let anonymised = 0;
+    if (keepResults) {
+      const { data: moved, error: moveError } = await supabaseAdmin.rpc(
+        'anonymise_player_results',
+        { p_user_id: userId },
+      );
+      if (moveError) {
+        throw new Error(`Failed to anonymise results: ${moveError.message}`);
+      }
+      anonymised = moved ?? 0;
     }
 
-    const { error: rolesDeleteError } = await supabaseAdmin
-      .from('user_roles')
-      .delete()
-      .eq('user_id', userId);
-
-    if (rolesDeleteError) {
-      throw new Error(`Failed to delete user roles: ${rolesDeleteError.message}`);
-    }
-
-    const { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
-
-    if (profileError) {
-      throw new Error(`Failed to delete profile: ${profileError.message}`);
-    }
-
-    // Delete from auth.users
+    // Profile, roles and position cascade from the account; results recorded *for others*
+    // keep their row and lose only the recorder (created_by is ON DELETE SET NULL).
     const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (authDeleteError) {
-      throw new Error(`Failed to delete auth user: ${authDeleteError.message}`);
+      throw new Error(
+        anonymised > 0
+          ? `Results were anonymised, but the account could not be deleted: ${authDeleteError.message}. Try again.`
+          : `Failed to delete account: ${authDeleteError.message}`,
+      );
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: 'User deleted successfully' }),
+      JSON.stringify({
+        success: true,
+        outcome: anonymised > 0 ? 'anonymised' : 'deleted',
+        anonymisedResults: anonymised,
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

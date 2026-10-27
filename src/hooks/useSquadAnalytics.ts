@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import {
   queryKeys,
   fetchEntries,
+  fetchFormerPlayers,
   fetchSquad,
+  formerPlayerName,
   type PerformanceEntry,
   type SquadMember,
 } from "@/lib/queries";
@@ -72,6 +74,11 @@ export function useSquadAnalytics(): SquadAnalytics {
     queryFn: fetchSquad,
   });
 
+  const formerQuery = useQuery({
+    queryKey: queryKeys.formerPlayers,
+    queryFn: fetchFormerPlayers,
+  });
+
   const entries = entriesQuery.data ?? NO_ENTRIES;
   const squad = squadQuery.data ?? NO_SQUAD;
 
@@ -80,15 +87,21 @@ export function useSquadAnalytics(): SquadAnalytics {
 
   const squadIds = useMemo(() => squad.map((p) => p.id), [squad]);
 
+  const formerIds = useMemo(() => new Set(formerQuery.data ?? []), [formerQuery.data]);
+
   /**
    * The roster is the source of truth for who exists, but a coach may hold entries for
    * someone who has since lost the player role. Appending those keeps their history
    * reachable instead of dropping rows on the floor.
+   *
+   * Former players are the exception: they left, so they are in no ranking, list or
+   * coverage gap. Their results stay in `index`, which is what keeps them in the session
+   * reports and squad history they were part of.
    */
   const playerIds = useMemo(() => {
-    const extra = index.playerIds.filter((id) => !squadIds.includes(id));
+    const extra = index.playerIds.filter((id) => !squadIds.includes(id) && !formerIds.has(id));
     return [...squadIds, ...extra];
-  }, [squadIds, index.playerIds]);
+  }, [squadIds, index.playerIds, formerIds]);
 
   const byId = useMemo(() => new Map(squad.map((p) => [p.id, p])), [squad]);
 
@@ -112,13 +125,18 @@ export function useSquadAnalytics(): SquadAnalytics {
     squad,
     playerIds,
     positions,
-    nameOf: (playerId) => byId.get(playerId)?.name ?? "Unknown player",
+    nameOf: (playerId) =>
+      byId.get(playerId)?.name ??
+      (formerIds.has(playerId) ? formerPlayerName(playerId) : "Unknown player"),
     memberOf: (playerId) => byId.get(playerId),
     teamStandings,
     standingsForGroup,
     now,
-    isPending: entriesQuery.isPending || squadQuery.isPending,
+    isPending: entriesQuery.isPending || squadQuery.isPending || formerQuery.isPending,
     isFetching: entriesQuery.isFetching || squadQuery.isFetching,
-    error: (entriesQuery.error as Error | null) ?? (squadQuery.error as Error | null),
+    error:
+      (entriesQuery.error as Error | null) ??
+      (squadQuery.error as Error | null) ??
+      (formerQuery.error as Error | null),
   };
 }

@@ -123,7 +123,14 @@ export function TermsDialog({ open, onAccept, canCancel = false }: TermsDialogPr
               <section>
                 <h3 className="font-semibold text-foreground mb-2">Your Rights</h3>
                 <p className="text-muted-foreground">
-                  Every player may review their stored performance data and request corrections or deletion according to club policy. You can access your data at any time through this application.
+                  Every player may review their stored performance data and request correction or deletion at any time. You can access your data at any time through this application.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-2">When You Leave the Club</h3>
+                <p className="text-muted-foreground">
+                  When you leave the club, your account — name, login, role and position — is deleted within three months. Your performance results are kept anonymously for squad statistics: they are moved to a random identifier with no link to your name and can no longer be traced back to you. If you want your results deleted as well, tell your club administrator before or when you leave; once anonymised, they can no longer be found as yours. Backup copies are kept for at most 30 days, so deleted data also disappears from them within 30 days.
                 </p>
               </section>
 
@@ -181,7 +188,14 @@ export function TermsDialog({ open, onAccept, canCancel = false }: TermsDialogPr
               <section>
                 <h3 className="font-semibold text-foreground mb-2">Ihre Rechte</h3>
                 <p className="text-muted-foreground">
-                  Jeder Spieler kann seine gespeicherten Leistungsdaten einsehen und gemäß der Vereinsrichtlinien Korrekturen oder Löschungen beantragen. Sie können jederzeit über diese Anwendung auf Ihre Daten zugreifen.
+                  Jeder Spieler kann seine gespeicherten Leistungsdaten einsehen und jederzeit Berichtigung oder Löschung verlangen. Sie können jederzeit über diese Anwendung auf Ihre Daten zugreifen.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-2">Nach dem Ausscheiden aus dem Verein</h3>
+                <p className="text-muted-foreground">
+                  Wenn Sie den Verein verlassen, wird Ihr Konto – Name, Zugang, Rolle und Position – innerhalb von drei Monaten gelöscht. Ihre Leistungswerte werden anonym für mannschaftsweite Statistiken aufbewahrt: Sie werden einer zufälligen Kennung ohne Bezug zu Ihrem Namen zugeordnet und lassen sich danach nicht mehr auf Sie zurückführen. Möchten Sie, dass auch Ihre Leistungswerte gelöscht werden, teilen Sie dies Ihrem Vereinsadministrator vor oder bei Ihrem Ausscheiden mit – nach der Anonymisierung können sie Ihnen nicht mehr zugeordnet werden. Sicherungskopien werden höchstens 30 Tage aufbewahrt; gelöschte Daten verschwinden daher spätestens nach 30 Tagen auch aus diesen.
                 </p>
               </section>
 

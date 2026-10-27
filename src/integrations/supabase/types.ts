@@ -39,6 +39,18 @@ export type Database = {
   }
   public: {
     Tables: {
+      former_players: {
+        Row: {
+          id: string
+        }
+        Insert: {
+          id?: string
+        }
+        Update: {
+          id?: string
+        }
+        Relationships: []
+      }
       heartbeat: {
         Row: {
           id: number
@@ -57,7 +69,7 @@ export type Database = {
       performance_entries: {
         Row: {
           created_at: string | null
-          created_by: string
+          created_by: string | null
           entry_date: string
           id: string
           metric_type: Database["public"]["Enums"]["metric_type"]
@@ -67,7 +79,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          created_by: string
+          created_by?: string | null
           entry_date: string
           id?: string
           metric_type: Database["public"]["Enums"]["metric_type"]
@@ -77,7 +89,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          created_by?: string
+          created_by?: string | null
           entry_date?: string
           id?: string
           metric_type?: Database["public"]["Enums"]["metric_type"]
@@ -158,6 +170,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anonymise_player_results: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       get_best_daily_entries: {
         Args: never
         Returns: {

@@ -30,6 +30,7 @@ export const queryKeys = {
   ownProfile: (userId: string) => ["own-profile", userId] as const,
   entries: ["entries"] as const,
   session: ["session"] as const,
+  formerPlayers: ["former-players"] as const,
 };
 
 export interface RosterPlayer {
@@ -81,6 +82,23 @@ export async function fetchRoster(): Promise<RosterPlayer[]> {
       .order("first_name", { ascending: true }),
   );
   return profiles || [];
+}
+
+/**
+ * The anonymous ids holding deleted players' results. Coaches and admins only - row-level
+ * security gives a player an empty list, which is right: they never see anyone else's rows.
+ */
+export async function fetchFormerPlayers(): Promise<string[]> {
+  const rows = unwrap(await supabase.from("former_players").select("id"));
+  return (rows || []).map((r) => r.id);
+}
+
+/**
+ * What a former player is called. A slice of the anonymous id rather than a running number:
+ * it never changes when someone else is anonymised, and it means nothing outside the app.
+ */
+export function formerPlayerName(id: string): string {
+  return `Former player ${id.slice(0, 4)}`;
 }
 
 export async function fetchBestDailyEntries() {
@@ -235,11 +253,21 @@ export function fetchPlayerStanding(playerId: string) {
   return invokeFunction<PlayerStanding>("get-player-standing", { player_id: playerId });
 }
 
+/**
+ * When the terms in src/components/TermsDialog.tsx last changed in substance. An acceptance
+ * older than this is an acceptance of different terms, so the dialog asks again. Move it
+ * forward whenever the text changes what members agree to - not for typo fixes.
+ */
+export const TERMS_UPDATED_AT = "2026-10-27T21:00:00Z";
+
 export async function fetchTermsAccepted(userId: string): Promise<boolean> {
   const row = unwrap(
     await supabase.from("profiles").select("terms_accepted_at").eq("id", userId).single(),
   );
-  return !!row?.terms_accepted_at;
+  return (
+    !!row?.terms_accepted_at &&
+    new Date(row.terms_accepted_at).getTime() >= new Date(TERMS_UPDATED_AT).getTime()
+  );
 }
 
 export interface UserProfile {
@@ -317,13 +345,18 @@ export interface PerformanceEntry {
  * do here.
  */
 export async function fetchEntries(): Promise<PerformanceEntry[]> {
-  const rows = await fetchBestDailyEntries();
+  const [rows, formerIds] = await Promise.all([fetchBestDailyEntries(), fetchFormerPlayers()]);
   const { profiles, positions } = await fetchEntryDetails([
     ...new Set(rows.map((e) => e.player_id)),
   ]);
+  const former = new Set(formerIds);
 
   return rows.map((entry) => {
-    const profile = profiles.get(entry.player_id);
+    // A former player has no profile by design. Naming them through the same fields keeps
+    // every table, sort and group-by working without knowing former players exist.
+    const profile = former.has(entry.player_id)
+      ? { first_name: formerPlayerName(entry.player_id), last_name: "" }
+      : profiles.get(entry.player_id);
     return {
       id: entry.id,
       entry_date: entry.entry_date,
