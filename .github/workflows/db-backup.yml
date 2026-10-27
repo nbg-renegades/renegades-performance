@@ -49,14 +49,24 @@ jobs:
           supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy -f backup/03-data.sql
 
           # An empty or truncated dump exits 0, so check the output rather than trusting it.
+          # Not by size alone for the roles: Supabase's own roles are excluded, so a project
+          # with no custom roles dumps a header of a few hundred bytes. A flat 1 KB minimum
+          # on every file failed every run from the first one, and no backup was ever kept.
           for f in backup/*.sql; do
-            size=$(wc -c < "$f")
-            echo "$f: $size bytes"
-            if [ "$size" -lt 1024 ]; then
-              echo "::error::$f is only $size bytes - the dump looks empty or truncated."
-              exit 1
-            fi
+            echo "$f: $(wc -c < "$f") bytes"
           done
+          fail() { echo "::error::$1"; exit 1; }
+          [ -s backup/01-roles.sql ] || fail "01-roles.sql is empty."
+          for f in backup/02-schema.sql backup/03-data.sql; do
+            [ "$(wc -c < "$f")" -ge 1024 ] || fail "$f is under 1 KB - empty or truncated."
+          done
+          # The two things this backup exists for: the performance history and the logins.
+          grep -q 'performance_entries' backup/02-schema.sql \
+            || fail "02-schema.sql has no performance_entries table."
+          grep -qE 'COPY "?public"?\."?performance_entries"?' backup/03-data.sql \
+            || fail "03-data.sql has no performance_entries data."
+          grep -qE 'COPY "?auth"?\."?users"?' backup/03-data.sql \
+            || fail "03-data.sql has no auth.users data."
 
       - name: Upload backup
         uses: actions/upload-artifact@v4
