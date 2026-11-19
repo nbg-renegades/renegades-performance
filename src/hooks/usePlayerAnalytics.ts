@@ -181,11 +181,16 @@ export function usePlayerAnalytics(
         METRIC_KEYS.map((metric) => [metric, { metric, ...EMPTY_STANDING }]),
       ) as Record<MetricType, PlayerStandingRow>;
     }
+    // The server ranks a player only within their own unit, so `unit` answers "offense" or
+    // "defense" only when that is the unit it was computed for. Anything else would be the
+    // player's own unit shown under the other unit's name; empty rows are the honest answer.
     const rows =
       group.kind === "position"
         ? payload.position
         : group.kind === "offense" || group.kind === "defense"
-          ? payload.unit
+          ? group.kind === payload.unit_label
+            ? payload.unit
+            : []
           : payload.team;
     return fromMetricStandings(rows);
   }, [isCoach, groupStandings, playerId, nameOf, standingQuery.data, group.kind]);

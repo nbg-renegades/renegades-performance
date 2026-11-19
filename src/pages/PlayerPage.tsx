@@ -63,7 +63,12 @@ const PlayerPage = () => {
   const position = member?.position ?? "unassigned";
 
   const group = useMemo<GroupSpec>(() => {
-    if (rawGroup === "offense" || rawGroup === "defense") return { kind: rawGroup };
+    // Only the player's own unit is offered. A stale or hand-edited ?group= naming the other
+    // unit falls back to the squad rather than ranking them against a unit they are not in.
+    if (rawGroup === "offense" || rawGroup === "defense") {
+      const ownUnit = position === "unassigned" ? null : getPositionUnit(position);
+      return rawGroup === ownUnit ? { kind: rawGroup } : { kind: "team" };
+    }
     if (rawGroup === "position") {
       return position === "unassigned" ? { kind: "team" } : { kind: "position", position };
     }
