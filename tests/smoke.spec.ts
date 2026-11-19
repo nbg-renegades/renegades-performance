@@ -1,4 +1,4 @@
-import { test, expect, ADMIN_ID } from "./fixtures";
+import { test, expect, ADMIN_ID, ADMIN_EMAIL } from "./fixtures";
 
 /**
  * A thin net under the things that broke, or nearly broke, while this app was being
@@ -164,6 +164,35 @@ test.describe("terms", () => {
     await signedIn.goto("/");
     await expect(signedIn.getByRole("alertdialog")).toBeVisible();
     await expect(signedIn.getByRole("heading", { name: "When You Leave the Club" })).toBeVisible();
+  });
+});
+
+test.describe("change password", () => {
+  test("re-checks the current password against the account's own email", async ({
+    signedIn,
+    isMobile,
+  }) => {
+    // Refuse the re-check, so the test only has to see which address it was sent to.
+    const emails: string[] = [];
+    await signedIn.route("**/auth/v1/token*", (route) => {
+      emails.push(JSON.parse(route.request().postData() || "{}").email);
+      return route.fulfill({
+        status: 400,
+        headers: { "content-type": "application/json", "access-control-allow-origin": "*" },
+        body: JSON.stringify({ error: "invalid_grant", error_description: "Invalid login credentials" }),
+      });
+    });
+
+    await signedIn.goto("/");
+    if (isMobile) await signedIn.getByRole("button", { name: "Toggle Sidebar" }).click();
+    await signedIn.getByRole("button", { name: "Change Password" }).click();
+    await signedIn.getByLabel("Current Password").fill("old-password-1");
+    await signedIn.getByLabel("New Password", { exact: true }).fill("new-password-1");
+    await signedIn.getByLabel("Confirm New Password").fill("new-password-1");
+    await signedIn.locator("form button[type=submit]").click();
+
+    // Not "philipp.bruchner@team.local@team.local", which is what it used to send.
+    await expect.poll(() => emails).toEqual([ADMIN_EMAIL]);
   });
 });
 

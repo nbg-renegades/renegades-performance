@@ -61,20 +61,14 @@ const Auth = () => {
     try {
       // First verify current password by attempting to sign in
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user?.email) throw new Error("Not authenticated");
 
-      // Get username from profile
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .single();
-
-      if (!profile) throw new Error("Profile not found");
-
-      // Verify current password
+      // Verify current password against the account's own email. This used to be rebuilt as
+      // `${profiles.username}@team.local`, but the signup trigger stores the full email as the
+      // username, so it became "name@team.local@team.local" and every attempt was refused as
+      // a wrong password.
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: `${profile.username}@team.local`,
+        email: user.email,
         password: currentPassword,
       });
 

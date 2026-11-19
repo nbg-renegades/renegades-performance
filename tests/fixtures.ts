@@ -30,6 +30,7 @@ function readEnvFile(key: string): string {
 }
 
 export const ADMIN_ID = "11111111-1111-1111-1111-111111111111";
+export const ADMIN_EMAIL = "philipp.bruchner@team.local";
 
 export const PLAYERS = [
   { id: ADMIN_ID, first_name: "Philipp", last_name: "Bruchner", position: "QB" },
@@ -136,7 +137,9 @@ export async function mockSupabase(page: Page, captured: Captured, role: "admin"
     }
 
     if (path.startsWith("/auth/v1/user")) {
-      return route.fulfill(json({ id: ADMIN_ID, aud: "authenticated", role: "authenticated" }));
+      return route.fulfill(
+        json({ id: ADMIN_ID, aud: "authenticated", role: "authenticated", email: ADMIN_EMAIL }),
+      );
     }
 
     if (path.startsWith("/rest/v1/user_roles")) {
@@ -160,7 +163,9 @@ export async function mockSupabase(page: Page, captured: Captured, role: "admin"
     if (path.startsWith("/rest/v1/profiles")) {
       const rows = PLAYERS.map((p) => ({
         id: p.id,
-        username: `${p.first_name.toLowerCase()}.${p.last_name.toLowerCase()}`,
+        // With the domain, because that is what the signup trigger stores: it copies the auth
+        // email. A bare name here once hid a change-password flow that appended it again.
+        username: `${p.first_name.toLowerCase()}.${p.last_name.toLowerCase()}@team.local`,
         first_name: p.first_name,
         last_name: p.last_name,
         // After TERMS_UPDATED_AT, so the terms dialog stays shut for every other test.
@@ -275,7 +280,7 @@ export async function seedSession(page: Page) {
           id: ADMIN_ID,
           aud: "authenticated",
           role: "authenticated",
-          email: "philipp.bruchner@team.local",
+          email: ADMIN_EMAIL,
           app_metadata: {},
           user_metadata: {},
           created_at: "2025-11-08T00:00:00Z",
