@@ -163,9 +163,7 @@ export async function mockSupabase(page: Page, captured: Captured, role: "admin"
     if (path.startsWith("/rest/v1/profiles")) {
       const rows = PLAYERS.map((p) => ({
         id: p.id,
-        // With the domain, because that is what the signup trigger stores: it copies the auth
-        // email. A bare name here once hid a change-password flow that appended it again.
-        username: `${p.first_name.toLowerCase()}.${p.last_name.toLowerCase()}@team.local`,
+        username: `${p.first_name.toLowerCase()}.${p.last_name.toLowerCase()}`,
         first_name: p.first_name,
         last_name: p.last_name,
         // After TERMS_UPDATED_AT, so the terms dialog stays shut for every other test.

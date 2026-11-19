@@ -63,10 +63,9 @@ const Auth = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) throw new Error("Not authenticated");
 
-      // Verify current password against the account's own email. This used to be rebuilt as
-      // `${profiles.username}@team.local`, but the signup trigger stores the full email as the
-      // username, so it became "name@team.local@team.local" and every attempt was refused as
-      // a wrong password.
+      // Verify current password against the account's own email, not one rebuilt from
+      // profiles.username. That column held the full email until 20261119200306, so the
+      // rebuilt address was "name@team.local@team.local" and every attempt was refused.
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: user.email,
         password: currentPassword,
